@@ -31,7 +31,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          # the latest patched Go, not the minimum from go.mod: old patch releases have known standard
+          # library vulnerabilities (govulncheck fails on them), and we must not build releases with those
+          go-version: stable
           # never build release artifacts from a cache that other workflow runs can write to
           cache: false
 
