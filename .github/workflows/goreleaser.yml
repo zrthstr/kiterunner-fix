@@ -5,25 +5,41 @@ on:
     tags:
       - v*
 
+# nothing by default, the release job opts into exactly what it needs
+permissions: {}
+
+# releases queue up instead of running in parallel, and are never cancelled half way
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   goreleaser:
+    name: Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the GitHub release and upload the archives
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4
+      # third party actions are pinned to full commit SHAs, tags are mutable. dependabot keeps them updated
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      -
-        name: Set up Go
-        uses: actions/setup-go@v5
+          fetch-depth: 0 # goreleaser needs the tags and history for the changelog
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
-      -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+          go-version-file: go.mod
+          # never build release artifacts from a cache that other workflow runs can write to
+          cache: false
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
-          version: '~> v1'
+          distribution: goreleaser
+          version: v2.20.1 # exact version, not a range, so a new goreleaser release can't change what we ship
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

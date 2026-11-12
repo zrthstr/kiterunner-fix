@@ -5,16 +5,32 @@ on:
   pull_request:
   workflow_dispatch:
 
+# least privilege: this workflow only needs to read the repository
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
+    name: Build and test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      # third party actions are pinned to full commit SHAs, tags are mutable. dependabot keeps them updated
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version-file: go.mod
+
+      - name: Verify modules
+        run: go mod verify
 
       - name: gofmt
         run: |
@@ -37,7 +53,7 @@ jobs:
         run: |
           go build -o "$RUNNER_TEMP/testserver" ./cmd/testServer
           "$RUNNER_TEMP/testserver" -p=14000-15001 > "$RUNNER_TEMP/testserver.log" 2>&1 &
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://localhost:15000/ && exit 0
             sleep 1
           done
