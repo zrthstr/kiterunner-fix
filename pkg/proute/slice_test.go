@@ -20,7 +20,7 @@ func TestFromStringSlice(t *testing.T) {
 	}{
 		{"simple", args{[]string{"/foo"}, "sometext.file", nil}, API{URL: "sometext.file", Routes: []Route{{Method: "GET", TemplatePath: "/foo"}}}, false},
 		{"simple add slash", args{[]string{"foo"}, "sometext.file", nil}, API{URL: "sometext.file", Routes: []Route{{Method: "GET", TemplatePath: "/foo"}}}, false},
-		{"simple two paths", args{[]string{"/foo", "/bar"}, "sometext.file", nil}, API{URL: "sometext.file", Routes: []Route{{Method: "GET", TemplatePath: "/foo"},{Method: "GET", TemplatePath: "/bar"}}}, false},
+		{"simple two paths", args{[]string{"/foo", "/bar"}, "sometext.file", nil}, API{URL: "sometext.file", Routes: []Route{{Method: "GET", TemplatePath: "/foo"}, {Method: "GET", TemplatePath: "/bar"}}}, false},
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {

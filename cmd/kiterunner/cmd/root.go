@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/zrthstr/kiterunner-fix/internal/art"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/spf13/cobra"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-
 // These global variables can be configured with the corresponding lowercase flag
 var (
 	Verbose string // Verbose defines the logging level, either trace, debug, info, error, fatal
 	Output  string // Output defines the output format, either pretty, text, json
-	Quiet   bool // Quiet will hide the beautiful ascii art upon startup
+	Quiet   bool   // Quiet will hide the beautiful ascii art upon startup
 
 	cfgFile string
 )

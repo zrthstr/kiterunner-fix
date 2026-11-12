@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/valyala/bytebufferpool"
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/valyala/bytebufferpool"
 )
 
 type Result struct {

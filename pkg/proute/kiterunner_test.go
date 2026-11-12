@@ -3,9 +3,9 @@ package proute
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestToKiterunnerRoutes(t *testing.T) {
@@ -31,7 +31,7 @@ func TestToKiterunnerRoutes(t *testing.T) {
 						{Key: "Content-Type", Value: "application/json"},
 					},
 					Query: []byte("QueryParam=example-query"),
-					Body:  []byte(  `{"player":{"id":5,"name":"Nathan Reline"}}`  ),
+					Body:  []byte(`{"player":{"id":5,"name":"Nathan Reline"}}`),
 				},
 			},
 		},
@@ -144,7 +144,7 @@ func TestToKiterunnerRoutesFromAPI(t *testing.T) {
 						{Key: "Content-Type", Value: "application/json"},
 					},
 					Query: []byte("ChildQueryParam=example-query"),
-					Body:  []byte(  `{"player":{"id":5,"name":"Nathan Reline"}}`  ),
+					Body:  []byte(`{"player":{"id":5,"name":"Nathan Reline"}}`),
 				},
 			},
 		},
@@ -203,7 +203,7 @@ func TestToKiterunnerRoutesFromAPI(t *testing.T) {
 						{Key: "Content-Type", Value: "multipart/form-data; boundary=hahahahahformboundaryhahahaha"},
 					},
 					Query: []byte("ChildQueryParam=example-query"),
-					Body:  []byte(  "--hahahahahformboundaryhahahaha\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\n123\r\n--hahahahahformboundaryhahahaha--\r\n"  ),
+					Body:  []byte("--hahahahahformboundaryhahahaha\r\nContent-Disposition: form-data; name=\"key\"\r\n\r\n123\r\n--hahahahahformboundaryhahahaha--\r\n"),
 				},
 			},
 		},

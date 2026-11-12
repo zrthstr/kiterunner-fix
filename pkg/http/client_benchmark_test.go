@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttputil"
 	"github.com/valyala/fasthttp/reuseport"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 type fataler interface {
@@ -62,7 +62,7 @@ func BenchmarkBenchServRequest(b *testing.B) {
 		client   = NewHTTPClient("127.0.0.1:14000", false)
 		hostname = "127.0.0.1"
 		port     = 14000
-		req      = Request{Route: &Route{Path: []byte( path )}, Target: &Target{Hostname: hostname, Port: port}}
+		req      = Request{Route: &Route{Path: []byte(path)}, Target: &Target{Hostname: hostname, Port: port}}
 		res      = Response{}
 		config   = Config{
 			Timeout:     1 * time.Second,
@@ -93,7 +93,6 @@ func BenchmarkBenchServRequest(b *testing.B) {
 	_ = err
 }
 
-
 func BenchmarkTCPRequest(b *testing.B) {
 	b.ReportAllocs()
 	var (
@@ -102,7 +101,7 @@ func BenchmarkTCPRequest(b *testing.B) {
 		client   = NewHTTPClient(memlist.Addr().String(), false)
 		hostname = strings.SplitN(memlist.Addr().String(), ":", 2)[0]
 		port     = 80
-		req      = Request{Route: &Route{Path: []byte( path )}, Target: &Target{Hostname: hostname, Port: port}}
+		req      = Request{Route: &Route{Path: []byte(path)}, Target: &Target{Hostname: hostname, Port: port}}
 		res      = Response{}
 		config   = Config{
 			Timeout:     1 * time.Second,
@@ -142,7 +141,7 @@ func BenchmarkMemoryRequest(b *testing.B) {
 		client   = NewHTTPClient(memlist.Addr().String(), false)
 		hostname = strings.SplitN(memlist.Addr().String(), ":", 2)[0]
 		port     = 80
-		req      = Request{Route: &Route{Path: []byte( path )}, Target: &Target{Hostname: hostname, Port: port}}
+		req      = Request{Route: &Route{Path: []byte(path)}, Target: &Target{Hostname: hostname, Port: port}}
 		config   = Config{
 			Timeout:     1 * time.Second,
 			ReadHeaders: false,
@@ -175,7 +174,7 @@ func BenchmarkMemoryRedirectRequest(b *testing.B) {
 		client   = NewHTTPClient(memlist.Addr().String(), false)
 		hostname = strings.SplitN(memlist.Addr().String(), ":", 2)[0]
 		port     = 80
-		req      = Request{Route: &Route{Path: []byte( path )}, Target: &Target{Hostname: hostname, Port: port}}
+		req      = Request{Route: &Route{Path: []byte(path)}, Target: &Target{Hostname: hostname, Port: port}}
 		resp     = Response{}
 		config   = Config{
 			Timeout:      1 * time.Second,

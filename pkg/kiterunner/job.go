@@ -7,12 +7,12 @@ import (
 )
 
 type job struct {
-	t     *http.Target
+	t      *http.Target
 	routes []*http.Route
 
 	wcr []WildcardResponse
 
-	client    *http.HTTPClient
+	client *http.HTTPClient
 }
 
 func (j *job) HTTPRequest() *http.Request {
@@ -98,7 +98,7 @@ var (
 	waitgroupPool sync.Pool
 )
 
-func acquireWaitGroup() *sync.WaitGroup{
+func acquireWaitGroup() *sync.WaitGroup {
 	v := waitgroupPool.Get()
 	if v == nil {
 		v := sync.WaitGroup{}

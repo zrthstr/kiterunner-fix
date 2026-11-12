@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
 	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/zrthstr/kiterunner-fix/pkg/proute"
-	"github.com/hashicorp/go-multierror"
 )
 
 func ConvertFiles(ctx context.Context, input string, output string) error {

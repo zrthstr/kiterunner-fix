@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 func TestKiterunnerEngineRun(b *testing.T) {
@@ -39,7 +39,6 @@ func TestKiterunnerEngineRun(b *testing.T) {
 		})
 	}
 }
-
 
 // KiterunnerRunSync demonstrates how to perform a synchronous call against the kiterunner Engine.
 // The results can be used as normal. Modifying the target or route that is returned may result in unexpected behaviour

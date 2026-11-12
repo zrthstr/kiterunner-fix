@@ -16,7 +16,7 @@ type RequestValidator interface {
 type KnownBadSitesValidator struct{}
 
 var (
-	ErrGoogleBadRequest = fmt.Errorf("google bad request found")
+	ErrGoogleBadRequest        = fmt.Errorf("google bad request found")
 	ErrAmazonGatewayBadRequest = fmt.Errorf("amazon gateway bad request found")
 )
 
@@ -49,7 +49,7 @@ func (v *KnownBadSitesValidator) Validate(r http.Response, wildcardResponses []W
 
 	// {"message":"Authorization header requires 'Credential' parameter. Authorization header requires 'Signature' parameter. Authorization header requires 'SignedHeaders' parameter. Authorization header requires existence of either a 'X-Amz-Date' or a
 	// 'Date' header. Authorization=29547877"}
-	if r.StatusCode == 403&&
+	if r.StatusCode == 403 &&
 		r.Lines == 1 &&
 		r.Words == 28 &&
 		r.BodyLength >= 277 {
@@ -64,7 +64,7 @@ func (v *KnownBadSitesValidator) Validate(r http.Response, wildcardResponses []W
 	}
 
 	// {"message":"'UEh6T0NPYkhOY3JSdGlmNDoxTUZ4WXExREg2bnBVR1Bi' not a valid key=value pair (missing equal-sign) in Authorization header: 'Basic UEh6T0NPYkhOY3JSdGlmNDoxTUZ4WXExREg2bnBVR1Bi'."}
-	if r.StatusCode == 403&&
+	if r.StatusCode == 403 &&
 		r.Lines == 1 &&
 		r.Words == 13 &&
 		r.BodyLength >= 99 {
@@ -77,7 +77,6 @@ func (v *KnownBadSitesValidator) Validate(r http.Response, wildcardResponses []W
 		}
 		return ErrAmazonGatewayBadRequest
 	}
-
 
 	return nil
 }

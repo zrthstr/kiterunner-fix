@@ -22,6 +22,5 @@ Usage
 			return fmt.Errorf("converting to txt output error: %w", err)
 		}
 	}
-
- */
+*/
 package errors

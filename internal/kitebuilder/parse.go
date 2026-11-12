@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
-	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 	"github.com/hashicorp/go-multierror"
+	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
+	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 )
 
 type ScanOptions struct {

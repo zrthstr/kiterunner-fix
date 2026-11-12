@@ -7,12 +7,11 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	humanize "github.com/dustin/go-humanize"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
-
-func GetLocalDirPanic() (string) {
+func GetLocalDirPanic() string {
 	ret, err := GetLocalDir()
 	if err != nil {
 		panic(err)
@@ -58,10 +57,10 @@ func GetLocalDirListing() ([]WordlistMetadata, error) {
 	for _, v := range files {
 		r := WordlistMetadata{
 			Shortname: nameConvert(v.Name()),
-			Filename: v.Name(),
-			Cached: true,
-			FileSize: humanize.Bytes(uint64(v.Size())),
-			Source: "local",
+			Filename:  v.Name(),
+			Cached:    true,
+			FileSize:  humanize.Bytes(uint64(v.Size())),
+			Source:    "local",
 		}
 		ret = append(ret, r)
 	}

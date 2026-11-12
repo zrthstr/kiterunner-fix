@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/beevik/etree"
 	"github.com/francoispqt/gojay"
 	"github.com/google/uuid"
 	"github.com/lucasjones/reggen"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 const (

@@ -3,8 +3,8 @@ package scan
 import (
 	"testing"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 func paths(routes []*http.Route) []string {

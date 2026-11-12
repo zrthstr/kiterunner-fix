@@ -44,4 +44,3 @@ func (b *ProgressBar) Incr(n int64) {
 func (b *ProgressBar) AddTotal(n int64) {
 	b.Requests.ChangeMax64(b.Requests.GetMax64() + n)
 }
-

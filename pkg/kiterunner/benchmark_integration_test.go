@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/stretchr/testify/assert"
 )
 
 func init() {

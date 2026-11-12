@@ -1,14 +1,13 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
 	"github.com/zrthstr/kiterunner-fix/internal/wordlist"
 	"github.com/zrthstr/kiterunner-fix/pkg/context"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/spf13/cobra"
 )
 
-var (
-)
+var ()
 
 // wordlistListCmd represents the wordlistList command
 var wordlistListCmd = &cobra.Command{

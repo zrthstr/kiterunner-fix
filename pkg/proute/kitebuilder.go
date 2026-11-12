@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/zrthstr/kiterunner-fix/pkg/errors"
 	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/hashicorp/go-multierror"
 )
 
 var (

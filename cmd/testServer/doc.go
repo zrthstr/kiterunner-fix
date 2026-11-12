@@ -7,5 +7,5 @@ does not degrade between feature enhancements and that expected behaviour does n
 
 The server is used for testing, and should not be used in a production environment.
 We provide no support on how to use the testServer.
- */
+*/
 package main

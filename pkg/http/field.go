@@ -5,11 +5,12 @@ import (
 )
 
 type HeaderField struct {
-	Key Field
+	Key   Field
 	Value Field
 }
 
 type FieldType int
+
 const (
 	String FieldType = iota
 	UUID
@@ -20,7 +21,7 @@ const (
 )
 
 type Field struct {
-	Key string `toml:"key" json:"key" mapstructure:"key"`
+	Key  string    `toml:"key" json:"key" mapstructure:"key"`
 	Type FieldType `toml:"type" json:"type" mapstructure:"type"`
 }
 

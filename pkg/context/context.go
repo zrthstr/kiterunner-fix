@@ -62,4 +62,3 @@ func Cancel() {
 	InitContext()
 	cancel()
 }
-

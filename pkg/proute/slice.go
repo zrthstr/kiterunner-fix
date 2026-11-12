@@ -15,7 +15,7 @@ type PRouteOptions struct {
 	PathCrumbs   []Crumb
 	BodyCrumbs   []Crumb
 	Method       string
-	ID string
+	ID           string
 	ContentType  []ContentType
 }
 type PRouteOption func(o *PRouteOptions)
@@ -56,7 +56,7 @@ func OptContentType(v string) PRouteOption {
 	}
 }
 
-func FromStringSliceReader(r io.Reader, source string, opts...PRouteOption) (API, error) {
+func FromStringSliceReader(r io.Reader, source string, opts ...PRouteOption) (API, error) {
 	scanner := bufio.NewScanner(r)
 
 	lines := make([]string, 0)
@@ -75,7 +75,7 @@ func FromStringSlice(in []string, source string, opts ...PRouteOption) (API, err
 
 	o := &PRouteOptions{
 		Method: "GET",
-		ID: ksuid.New().String(),
+		ID:     ksuid.New().String(),
 	}
 
 	for _, v := range opts {
@@ -105,11 +105,11 @@ func FromStringSlice(in []string, source string, opts ...PRouteOption) (API, err
 	return ret, nil
 }
 
-func (a APIS) EncodeStringSlice(w io.Writer) (error) {
+func (a APIS) EncodeStringSlice(w io.Writer) error {
 	var merr *multierror.Error
 	for _, api := range a {
 		for _, route := range api.Routes {
-			path, err:= route.Path(true)
+			path, err := route.Path(true)
 			if err != nil {
 				multierror.Append(merr, err)
 				continue

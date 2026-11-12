@@ -3,9 +3,9 @@ package proute
 import (
 	"testing"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
 )
 
 func TestFromKitebuilderAPI(t *testing.T) {

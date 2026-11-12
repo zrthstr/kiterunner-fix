@@ -13,5 +13,5 @@ and to clean up any resources mid-flight
 	if err := scan.ScanDomainOrFile(context.Context(), domain, opts...); err != nil {
 		log.Fatal().Err(err).Msg("failed to scan domain")
 	}
- */
+*/
 package context

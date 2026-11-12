@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/valyala/fasthttp"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 var (
@@ -39,14 +39,14 @@ func noRetry(_ *fasthttp.Request) bool { return false }
 // Config provides all the options available to a request, this is used by DoClient
 type Config struct {
 	// Timeout is the duration to wait when performing a DoTimeout request
-	Timeout      time.Duration `toml:"timeout" json:"timeout" mapstructure:"timeout"`
+	Timeout time.Duration `toml:"timeout" json:"timeout" mapstructure:"timeout"`
 	// MaxRedirects corresponds to how many redirects to follow. 0 means the first request will return and no
 	// redirects are followed
-	MaxRedirects int           `toml:"max_redirects" json:"max_redirects" mapstructure:"max_redirects"`
+	MaxRedirects int `toml:"max_redirects" json:"max_redirects" mapstructure:"max_redirects"`
 
 	// ReadBody defines whether to copy the body into the Response object. We will always read the body of the request
 	// off the wire to perform the length and word count calculations
-	ReadBody    bool
+	ReadBody bool
 	// ReadHeaders defines whether to copy the headers into the Response object. We will always peek the location header
 	// to determine whether to follow redirects
 	ReadHeaders bool
@@ -66,7 +66,7 @@ type Config struct {
 func (c *Config) IsBlacklistedRedirect(host []byte) bool {
 	log.Trace().Str("host", string(host)).Strs("blhosts", c.BlacklistRedirects).Msg("checking for blacklist hosts")
 	for _, v := range c.BlacklistRedirects {
-		if bytes.HasPrefix(host, []byte( v )) {
+		if bytes.HasPrefix(host, []byte(v)) {
 			return true
 		}
 	}

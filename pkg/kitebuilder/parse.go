@@ -10,9 +10,9 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/hashicorp/go-multierror"
 	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/hashicorp/go-multierror"
 )
 
 // LoadJSONFile will load the json schema from the specified file
@@ -69,8 +69,8 @@ func LoadJSONBytes(buf []byte) ([]API, error) {
 // This is a painful manual process when the kitebuilder spec was non-finalised
 func SlowLoadJSONBytes(buf []byte) ([]API, error) {
 	var (
-		ret    []API
-		all    []interface{}
+		ret  []API
+		all  []interface{}
 		merr = &multierror.Error{}
 	)
 	log.Debug().Msg("beginning slow load of json bytes")

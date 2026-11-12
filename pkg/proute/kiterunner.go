@@ -3,8 +3,8 @@ package proute
 import (
 	"strings"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/hashicorp/go-multierror"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 func APIsToKiterunnerRoutes(api []API) ([]*http.Route, error) {
@@ -89,7 +89,7 @@ func (r Route) ToKiterunner(extraHeaders ...KV) (*http.Route, error) {
 	if err != nil {
 		return ret, err
 	}
-	ret.Path = []byte( tmp )
+	ret.Path = []byte(tmp)
 
 	tmp, err = r.Query(false)
 	ret.Query = []byte(tmp)

@@ -1,15 +1,14 @@
 package proute
 
-
 import (
 	"encoding/gob"
 	"io"
 	"io/ioutil"
 	"os"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 // RegisterGobs will register globally the gobs needed to serialize and deserialize an API
@@ -107,4 +106,3 @@ func DecodeGobAPI(r io.Reader) (APIS, error) {
 
 	return ret, nil
 }
-

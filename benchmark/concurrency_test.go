@@ -171,23 +171,26 @@ func TestModel4(b *testing.T) {
 }
 
 // Model message-passing
-//               ┌────────────┐       ┌───────────────────────────────┐
-//               │            │       │                               │
-//               ▼            │       ▼        (A)                 (B)│
-//     ┌─► target_wkr ───► preflight_wkr ─┐  1.┌─► preflight_check ─┐ │
-//     │                                  │    │                    │ │
+//
+//	          ┌────────────┐       ┌───────────────────────────────┐
+//	          │            │       │                               │
+//	          ▼            │       ▼        (A)                 (B)│
+//	┌─► target_wkr ───► preflight_wkr ─┐  1.┌─► preflight_check ─┐ │
+//	│                                  │    │                    │ │
+//
 // tx ─┼─► target_wkr ───► preflight_wkr ─┼────┼─► preflight_check ─┼─┘
-//     │                                  │    │                    │
-//     └─► target_wkr ───► preflight_wkr ─┘    └─► preflight_check ─┘
-//           │  │  │ ▲             ▲                 │
-//           └──┼──┘ │             │                 │
-//              │    └───target request semaphore ◄──┘
-//              │               ▲
-//              │      ┌─► request_wkr ─┐
-//              │      │                │
-//       2. (C) └──────┼─► request_wkr ─┼─► rx
-//                     │                │
-//                     └─► request_wkr ─┘
+//
+//	│                                  │    │                    │
+//	└─► target_wkr ───► preflight_wkr ─┘    └─► preflight_check ─┘
+//	      │  │  │ ▲             ▲                 │
+//	      └──┼──┘ │             │                 │
+//	         │    └───target request semaphore ◄──┘
+//	         │               ▲
+//	         │      ┌─► request_wkr ─┐
+//	         │      │                │
+//	  2. (C) └──────┼─► request_wkr ─┼─► rx
+//	                │                │
+//	                └─► request_wkr ─┘
 func RunModel1(parallelHosts int, connPerHost int, targets, chunks, requests int) int {
 	var (
 		preflightChecks    = 10
@@ -348,18 +351,21 @@ func RunModel2(parallelHosts int, connPerHost int, targets, chunks, requests int
 }
 
 // each target gets a dedicated set of threads
-//                     ┌─► request_wkr ──┬───┐
-//     ┌─► target_wkr ─┼─► request_wkr ──┤   │
-//     │         ▲     └─► request_wkr ──┴─┐ │
-//     │         └─────────────────────────┘ │
-//     │               ┌─► request_wkr ──┬───┼─────► rx
+//
+//	                ┌─► request_wkr ──┬───┐
+//	┌─► target_wkr ─┼─► request_wkr ──┤   │
+//	│         ▲     └─► request_wkr ──┴─┐ │
+//	│         └─────────────────────────┘ │
+//	│               ┌─► request_wkr ──┬───┼─────► rx
+//
 // tx ─┼─► target_wkr ─┼─► request_wkr ──┤   │
-//     │         ▲     └─► request_wkr ──┴─┐ │
-//     │         └─────────────────────────┘ │
-//     │               ┌─► request_wkr ──┬───┘
-//     └─► target_wkr ─┼─► request_wkr ──┤
-//               ▲     └─► request_wkr ──┴─┐
-//               └─────────────────────────┘
+//
+//	│         ▲     └─► request_wkr ──┴─┐ │
+//	│         └─────────────────────────┘ │
+//	│               ┌─► request_wkr ──┬───┘
+//	└─► target_wkr ─┼─► request_wkr ──┤
+//	          ▲     └─► request_wkr ──┴─┐
+//	          └─────────────────────────┘
 func RunModel3(parallelHosts int, connPerHost int, targets, chunks, requests int) int {
 	var (
 		preflightChecks = 10
@@ -444,18 +450,21 @@ func chunkBy(items []int, chunkSize int) (chunks [][]int) {
 }
 
 // each target gets a dedicated set of threads
-//                     ┌─► request_wkr ──┬───┐
-//     ┌─► target_wkr ─┼─► request_wkr ──┤   │
-//     │         ▲     └─► request_wkr ──┴─┐ │
-//     │         └─────────────────────────┘ │
-//     │               ┌─► request_wkr ──┬───┼─────► rx
+//
+//	                ┌─► request_wkr ──┬───┐
+//	┌─► target_wkr ─┼─► request_wkr ──┤   │
+//	│         ▲     └─► request_wkr ──┴─┐ │
+//	│         └─────────────────────────┘ │
+//	│               ┌─► request_wkr ──┬───┼─────► rx
+//
 // tx ─┼─► target_wkr ─┼─► request_wkr ──┤   │
-//     │         ▲     └─► request_wkr ──┴─┐ │
-//     │         └─────────────────────────┘ │
-//     │               ┌─► request_wkr ──┬───┘
-//     └─► target_wkr ─┼─► request_wkr ──┤
-//               ▲     └─► request_wkr ──┴─┐
-//               └─────────────────────────┘
+//
+//	│         ▲     └─► request_wkr ──┴─┐ │
+//	│         └─────────────────────────┘ │
+//	│               ┌─► request_wkr ──┬───┘
+//	└─► target_wkr ─┼─► request_wkr ──┤
+//	          ▲     └─► request_wkr ──┴─┐
+//	          └─────────────────────────┘
 func RunModel4(parallelHosts int, connPerHost int, targets, chunks, requestCount int) int {
 	var (
 		preflightChecks = 10

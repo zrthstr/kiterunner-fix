@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/valyala/bytebufferpool"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 var (
@@ -55,16 +55,16 @@ type Target struct {
 	HostHeader   []byte
 	muHostHeader sync.Mutex
 
-	IP       string   // the IP is the address used to reach the server. If empty, Hostname will be used
-	Port     int      // Port will be the port used to reach the server.
-	IsTLS    bool     // IsTLS defines whether to use a TLS dialer or normal dialer
-	BasePath string   // BasePath allows for custom discovery on a target below the root directory
+	IP       string // the IP is the address used to reach the server. If empty, Hostname will be used
+	Port     int    // Port will be the port used to reach the server.
+	IsTLS    bool   // IsTLS defines whether to use a TLS dialer or normal dialer
+	BasePath string // BasePath allows for custom discovery on a target below the root directory
 
 	// Header is an ordered list of http headers to add to the request.
 	// Header behaviour is determined by fasthttp.Request  and fasthttp.RequestHeader
 	// Authentication and Content-Type headers should be added to here
 	// the Host header is separately governed by HostHeader
-	Headers  []Header
+	Headers []Header
 
 	ctx       context.Context
 	ctxcancel func()
@@ -87,12 +87,12 @@ func (t *Target) SetContext(c context.Context) {
 // This context can be used across goroutines to assess the validity of the goroutine. This is independent
 // of the quarantine state.
 //
-//		select {
-//		case <-target.Context().Done():
-//			return
-//		case default:
-//			resp, err := http.DoClient(target.HTTPClient(5, time.Second), req, &config.HTTP)
-//		}
+//	select {
+//	case <-target.Context().Done():
+//		return
+//	case default:
+//		resp, err := http.DoClient(target.HTTPClient(5, time.Second), req, &config.HTTP)
+//	}
 func (t *Target) Context() context.Context {
 	if t.ctx == nil {
 		log.Panic().Str("target", t.String()).Msg("creating fresh context for target")

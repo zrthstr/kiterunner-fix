@@ -3,10 +3,10 @@ package cmd
 import (
 	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/zrthstr/kiterunner-fix/internal/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/context"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/spf13/cobra"
 )
 
 // compileCmd represents the compile command
@@ -47,5 +47,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	 compileCmd.Flags().BoolVarP(&debug, "debug", "d", false, "debug the parsing")
+	compileCmd.Flags().BoolVarP(&debug, "debug", "d", false, "debug the parsing")
 }

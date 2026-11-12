@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/manifoldco/promptui"
+	"github.com/olekukonko/tablewriter"
 	"github.com/zrthstr/kiterunner-fix/pkg/convert"
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/kiterunner"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/manifoldco/promptui"
-	"github.com/olekukonko/tablewriter"
 )
 
 // resultKey identifies a result by target and route. Routes are shared between the quick and full scan

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 func TestParseInput(t *testing.T) {
@@ -19,8 +19,7 @@ func TestParseInput(t *testing.T) {
 		args    args
 		want    []*http.Target
 		wantErr bool
-	}{
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseInput(tt.args.in)

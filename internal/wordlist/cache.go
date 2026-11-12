@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/hashicorp/go-multierror"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 // Save will save the specified names to the local cache.

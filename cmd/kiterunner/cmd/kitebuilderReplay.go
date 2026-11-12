@@ -3,15 +3,15 @@ package cmd
 import (
 	"regexp"
 
+	"github.com/spf13/cobra"
 	"github.com/zrthstr/kiterunner-fix/internal/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/context"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/spf13/cobra"
 )
 
 var (
 	kitebuilderFile = ""
-	proxy = ""
+	proxy           = ""
 )
 
 // replayCmd represents the replay command
@@ -33,10 +33,10 @@ kr kb replay -w routes.kite --proxy http://localhost:8080 "POST    403 [    126,
 	Args: cobra.MaximumNArgs(4),
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			ksuid string
+			ksuid  string
 			method string
-			path string
-			host string
+			path   string
+			host   string
 		)
 
 		switch len(args) {

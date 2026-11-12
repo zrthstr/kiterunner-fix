@@ -182,7 +182,6 @@ func SetPreflightCheckRoutes(r []*http.Route) ConfigOption {
 	}
 }
 
-
 func HTTPExtraHeaders(h []http.Header) ConfigOption {
 	return func(o *Config) {
 		o.HTTP.ExtraHeaders = append(o.HTTP.ExtraHeaders, h...)

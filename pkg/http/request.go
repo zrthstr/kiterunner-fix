@@ -9,10 +9,10 @@ import (
 
 type Request struct {
 	Target *Target
-	Route *Route
+	Route  *Route
 }
 
-func (r *Request) String() string{
+func (r *Request) String() string {
 	return fmt.Sprintf("{ request %v }", r.Target)
 }
 

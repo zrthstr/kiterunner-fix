@@ -33,7 +33,8 @@ func BenchmarkSelectChannel(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		done := make(chan bool)
 		go func() {
-			select { case <-ctx.Done():
+			select {
+			case <-ctx.Done():
 			case done <- true:
 			}
 		}()

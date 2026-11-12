@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
 	"github.com/zrthstr/kiterunner-fix/internal/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/context"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -50,5 +50,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	 parseCmd.Flags().BoolVarP(&debug, "debug", "d", false, "debug the parsing")
+	parseCmd.Flags().BoolVarP(&debug, "debug", "d", false, "debug the parsing")
 }

@@ -8,7 +8,7 @@ import (
 var wordlistCmd = &cobra.Command{
 	Use:   "wordlist",
 	Short: "look at your cached wordlists and remote wordlists",
-	Long: `used to help manage your wordlists in your .cache/kiterunner`,
+	Long:  `used to help manage your wordlists in your .cache/kiterunner`,
 }
 
 func init() {

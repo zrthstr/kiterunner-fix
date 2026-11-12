@@ -59,7 +59,7 @@ func (e *Engine) RunCallback(ctx context.Context, input []*http.Target, cb ...fu
 // This function does not return the results as they are released immediately after all callbacks are called.
 // It is unsafe to use the result after your callbacks return
 // Use this when you don't require using the result after the callback, e.g. writing to disk/printing to output
-func (e *Engine) RunCallbackNoResult(ctx context.Context, input []*http.Target, cb ...func(r *Result, c *Config)) (error) {
+func (e *Engine) RunCallbackNoResult(ctx context.Context, input []*http.Target, cb ...func(r *Result, c *Config)) error {
 	tx, rx, err := e.RunAsync(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to run scan: %w", err)

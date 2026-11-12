@@ -12,10 +12,10 @@ func TestDecodeProtoAPI(t *testing.T) {
 		input APIS
 	}
 	tests := []struct {
-		name    string
-		args    args
+		name string
+		args args
 	}{
-		{"simple", args{ input: APIS{
+		{"simple", args{input: APIS{
 			API{
 				ID:  "0cc39f78f36dbe7fe7ea94c0f2687d269d728f96",
 				URL: "projectplay.xyz",
@@ -66,7 +66,6 @@ func TestDecodeProtoAPI(t *testing.T) {
 			var tmp bytes.Buffer
 			err := tt.args.input.EncodeProto(&tmp)
 			assert.Nil(t, err)
-
 
 			got, err := DecodeProtoAPI(bytes.NewReader(tmp.Bytes()))
 			assert.Nil(t, err)

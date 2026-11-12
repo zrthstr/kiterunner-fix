@@ -8,7 +8,7 @@ func (p *ProtoCrumb_FloatCrumb) UnwrapCrumb() Crumb        { return *p.FloatCrum
 func (p *ProtoCrumb_RandomStringCrumb) UnwrapCrumb() Crumb { return *p.RandomStringCrumb }
 func (p *ProtoCrumb_RegexStringCrumb) UnwrapCrumb() Crumb  { return *p.RegexStringCrumb }
 func (p *ProtoCrumb_BasicAuthCrumb) UnwrapCrumb() Crumb    { return *p.BasicAuthCrumb }
-func (p *ProtoCrumb_ArrayCrumb) UnwrapCrumb() Crumb        { return *p.ProuteCrumb()}
+func (p *ProtoCrumb_ArrayCrumb) UnwrapCrumb() Crumb        { return *p.ProuteCrumb() }
 func (p *ProtoCrumb_ObjectCrumb) UnwrapCrumb() Crumb       { return *p.ProuteCrumb() }
 func (p *ProtoCrumb_StringCrumbCrumb) UnwrapCrumb() Crumb  { return *p.ProuteCrumb() }
 
@@ -17,7 +17,7 @@ func (p *ProtoCrumb_ArrayCrumb) ProuteCrumb() *ArrayCrumb {
 		return nil
 	}
 	return &ArrayCrumb{
-		Name: p.ArrayCrumb.Name,
+		Name:    p.ArrayCrumb.Name,
 		Element: p.ArrayCrumb.Element.GetRawCrumb(),
 	}
 }
@@ -27,7 +27,7 @@ func (p *ProtoCrumb_ObjectCrumb) ProuteCrumb() *ObjectCrumb {
 		return nil
 	}
 	return &ObjectCrumb{
-		Name: p.ObjectCrumb.Name,
+		Name:     p.ObjectCrumb.Name,
 		Elements: FromProtoCrumbs(p.ObjectCrumb.Elements),
 	}
 }
@@ -37,7 +37,7 @@ func (p *ProtoCrumb_StringCrumbCrumb) ProuteCrumb() *StringCrumbCrumb {
 		return nil
 	}
 	return &StringCrumbCrumb{
-		Name: p.StringCrumbCrumb.Name,
+		Name:  p.StringCrumbCrumb.Name,
 		Child: p.StringCrumbCrumb.Child.GetRawCrumb(),
 	}
 }

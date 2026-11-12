@@ -8,7 +8,7 @@ import (
 var kidebuilderCmd = &cobra.Command{
 	Use:   "kb",
 	Short: "manipulate the kitebuilder schema",
-	Long: `manipuate the kitebuilder schema in various ways`,
+	Long:  `manipuate the kitebuilder schema in various ways`,
 }
 
 func init() {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/zrthstr/kiterunner-fix/internal/wordlist"
 	"github.com/zrthstr/kiterunner-fix/pkg/convert"
 	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
@@ -18,7 +19,6 @@ import (
 	"github.com/zrthstr/kiterunner-fix/pkg/kiterunner"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/zrthstr/kiterunner-fix/pkg/proute"
-	"github.com/hashicorp/go-multierror"
 )
 
 const (

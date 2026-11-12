@@ -13,12 +13,9 @@ when using targets that one has to be weary of. These quirks are side-effects of
 allocation behaviour. Admittedly, this is very developer unfriendly, and changes to the API that make it more usable
 while maintaining the performance are welcome.
 
- - We expect Targets to be instantiated then updated as required
- - Once Target.ParseHostHeader() has been called further modifications will not be respected
- - Target.HTTPClient() will cache the first set of options that are used. Future modifications are ignored
- - All operations on a target are thread safe to use
-
-
-
- */
+  - We expect Targets to be instantiated then updated as required
+  - Once Target.ParseHostHeader() has been called further modifications will not be respected
+  - Target.HTTPClient() will cache the first set of options that are used. Future modifications are ignored
+  - All operations on a target are thread safe to use
+*/
 package http

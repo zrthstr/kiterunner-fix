@@ -13,6 +13,5 @@ multiple hosts
 Usage
 
 	go run ./cmd/testServer -p 14000-14500
-
- */
+*/
 package cmd

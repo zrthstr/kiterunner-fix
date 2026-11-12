@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/hashicorp/go-multierror"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 // prefixfromDepth will create the indent prefix for a certain depth
@@ -46,7 +46,7 @@ type ParserError struct {
 	Method  string // Method corresponds to the method for the request at the top level of the API
 	Route   string // Route corresponds to the route for the request
 	RawJSON []byte // RawJSON optionally can include the raw json for the component if there was a JSON parsing error
-	Err     error // Err includes the error. If this is a wrapped error, then Error() will not print out this field
+	Err     error  // Err includes the error. If this is a wrapped error, then Error() will not print out this field
 	Context string // Context is an arbitrary context field that you can use to add helpful text explaining the error
 }
 
@@ -77,7 +77,7 @@ func (p *ParserError) LogError(depth int) {
 
 	// skip printing the raw json since its heaps noisy
 	if p.RawJSON != nil {
-		if len( p.RawJSON ) < 100 {
+		if len(p.RawJSON) < 100 {
 			base = base.RawJSON("JSON", p.RawJSON)
 		}
 	}

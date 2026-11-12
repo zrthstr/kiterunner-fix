@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 const (
@@ -35,7 +35,7 @@ func (c *count32) get() uint32 {
 }
 
 func PreRequest() {
-	time.Sleep(0* time.Millisecond)
+	time.Sleep(0 * time.Millisecond)
 	requestCount.increment()
 }
 
@@ -77,9 +77,9 @@ func UserWildcardResponder(ctx *fasthttp.RequestCtx) {
 	PreRequest()
 
 	log.Info().
-		Bytes("method",ctx.Method()).
+		Bytes("method", ctx.Method()).
 		Bytes("uri", ctx.RequestURI()).Msg("got user request")
-	switch string( ctx.Method() ) {
+	switch string(ctx.Method()) {
 	case "GET":
 		fmt.Fprintf(ctx, "get %s user woo\n", ctx.RequestURI())
 	default:
@@ -87,7 +87,6 @@ func UserWildcardResponder(ctx *fasthttp.RequestCtx) {
 		ctx.Response.Header.Add("location", string(ctx.RequestURI()))
 	}
 }
-
 
 func APIWildcardResponder(ctx *fasthttp.RequestCtx) {
 	PreRequest()

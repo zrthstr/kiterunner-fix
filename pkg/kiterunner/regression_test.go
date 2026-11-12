@@ -3,8 +3,8 @@ package kiterunner
 import (
 	"testing"
 
-	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 // A pooled job must not carry the wildcard baselines of the previous target that used it,
