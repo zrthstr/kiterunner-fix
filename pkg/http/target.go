@@ -73,7 +73,8 @@ type Target struct {
 	quarantineHits int64
 	quarantined    int32
 
-	b []byte
+	b   []byte
+	muB sync.Mutex
 
 	httpClient *HTTPClient
 }
@@ -299,7 +300,10 @@ func (t *Target) String() string {
 // Bytes will return the same output as String. This is cached in t.b
 // If the target is changed after Bytes() is called, the changes will not be
 // reflected
+// Bytes is called concurrently by the target scheduler and the request workers, so the cache is guarded
 func (t *Target) Bytes() []byte {
+	t.muB.Lock()
+	defer t.muB.Unlock()
 	if len(t.b) == 0 {
 		t.b = t.AppendBytes(t.b)
 	}
@@ -314,7 +318,9 @@ func (t *Target) reset() {
 	t.IP = ""
 	t.Hostname = ""
 	t.Headers = t.Headers[:0]
+	t.muB.Lock()
 	t.b = t.b[:0]
+	t.muB.Unlock()
 	t.QuarantineReset()
 	t.HitReset()
 

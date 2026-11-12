@@ -3,6 +3,7 @@ package scan
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -12,6 +13,10 @@ import (
 type ProgressBar struct {
 	Pb       *mpb.Progress
 	Requests *progressbar.ProgressBar
+
+	// progressbar does not synchronise ChangeMax64 with Add64, and the engine calls Incr and
+	// AddTotal from different goroutines
+	mu sync.Mutex
 }
 
 func NewProgress(max int64) *ProgressBar {
@@ -38,9 +43,13 @@ func NewProgress(max int64) *ProgressBar {
 }
 
 func (b *ProgressBar) Incr(n int64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.Requests.Add64(n)
 }
 
 func (b *ProgressBar) AddTotal(n int64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.Requests.ChangeMax64(b.Requests.GetMax64() + n)
 }

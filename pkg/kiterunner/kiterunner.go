@@ -437,10 +437,11 @@ func (e *Engine) RunAsync(ctx context.Context) (tx chan *http.Target, rx chan *R
 		// wait until the targets have all terminated
 		targetWg.Wait()
 		requestWg.Wait()
-		close(output)
 		// all workers have exited, release the context resources
 		cancel()
+		// log before closing output: once output is closed the caller may return and reconfigure logging
 		log.Debug().Str("goroutine", "worker closer").Msg("output and requests closed")
+		close(output)
 	}()
 
 	return input, output, nil
