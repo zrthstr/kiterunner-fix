@@ -507,7 +507,7 @@ func AddHeaders(hs []string) ScanOption {
 			if len(sp) != 2 {
 				return fmt.Errorf("invalid header format: %s", h)
 			}
-			o.Headers = append(o.Headers, http.Header{sp[0], sp[1]})
+			o.Headers = append(o.Headers, http.Header{Key: sp[0], Value: sp[1]})
 		}
 		return nil
 	}
@@ -519,7 +519,7 @@ func AddHeader(h string) ScanOption {
 		if len(sp) != 2 {
 			return fmt.Errorf("invalid header format: %s", h)
 		}
-		o.Headers = append(o.Headers, http.Header{sp[0], sp[1]})
+		o.Headers = append(o.Headers, http.Header{Key: sp[0], Value: sp[1]})
 		return nil
 	}
 }

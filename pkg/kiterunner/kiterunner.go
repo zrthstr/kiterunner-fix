@@ -351,7 +351,7 @@ func (e *Engine) RunAsync(ctx context.Context) (tx chan *http.Target, rx chan *R
 		return nil, nil, fmt.Errorf("failed to start. invalid settings: %w", err)
 	}
 
-	ctx, _ = context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	var (
 		maxMessages = e.config.MaxParallelHosts * e.config.MaxConnPerHost
@@ -438,6 +438,8 @@ func (e *Engine) RunAsync(ctx context.Context) (tx chan *http.Target, rx chan *R
 		targetWg.Wait()
 		requestWg.Wait()
 		close(output)
+		// all workers have exited, release the context resources
+		cancel()
 		log.Debug().Str("goroutine", "worker closer").Msg("output and requests closed")
 	}()
 

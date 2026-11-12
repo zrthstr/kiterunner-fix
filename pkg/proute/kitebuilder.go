@@ -324,7 +324,6 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 				return RandomStringCrumb{Name: name}, merr.ErrorOrNil()
 			}
 		}
-		return RandomStringCrumb{Name: name}, nil
 		// %+v map[:1615 binary:5 bytes:10 date:21 date-format:1 date-time:47 datetime:6 duration:14
 		// email:10 locale:2 markdown:3 password:4 uri:8 uuid:6]
 	default:
@@ -332,8 +331,6 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 		// %+v map[:376 array:283 boolean:199 integer:250 jwttoken:1 number:72 object:68 string:1752]
 	}
 	// TODO: Handle enums
-
-	return ret, fmt.Errorf("unexpected type %s", v.GetType())
 }
 
 func FromKitebuilderAPIs(src []kitebuilder.API) ([]API, error) {

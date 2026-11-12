@@ -322,7 +322,6 @@ func TestDoClientRedirectRequest(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First Request
-	resp = resp
 	// we expect the request uri to be empty
 	assert.Equal(t, "", string(resp.URI))
 	// it should be a redirect
@@ -397,7 +396,6 @@ func TestDoClientRedirectRequestSameFullHost(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First Request
-	resp = resp
 	// we expect the request uri to be empty
 	assert.Equal(t, "", string(resp.URI))
 	// it should be a redirect
@@ -477,7 +475,6 @@ func TestDoClientRedirectRequestMultiHost(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First Request
-	resp = resp
 	// we expect the request uri to be empty
 	assert.Equal(t, "", string(resp.URI))
 	// it should be a redirect
