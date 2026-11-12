@@ -1,7 +1,8 @@
 name: Corpus
 
 # compiles Assetnote's real routes dataset (~2000 APIs from real swagger files) and checks every request kr
-# builds from it. Needs a 15MB download, so it runs weekly and on demand instead of on every push
+# builds from it, then fuzzes the parsers. Needs a 15MB download and ~10 minutes, so it runs weekly and on
+# demand instead of on every push. (The fuzz seeds and saved crashers also run with every `go test`.)
 on:
   schedule:
     - cron: "17 4 * * 1"
@@ -34,3 +35,20 @@ jobs:
         env:
           KR_E2E_CORPUS: download
         run: go test -count=1 -run TestCorpus -v -timeout 20m ./e2e/
+
+      - name: Fuzz
+        run: |
+          set -e
+          while read -r pkg target; do
+            echo "::group::$target"
+            go test -run '^$' -fuzz "^${target}\$" -fuzztime 60s "$pkg"
+            echo "::endgroup::"
+          done <<'TARGETS'
+          ./internal/scan FuzzParseDomain
+          ./internal/scan FuzzParseFileWithLen
+          ./pkg/http FuzzRangeFromString
+          ./pkg/http FuzzUpdateRedirectURL
+          ./pkg/kitebuilder FuzzLoadJSON
+          ./pkg/proute FuzzSchemaToRequests
+          ./pkg/proute FuzzDecodeProtoAPI
+          TARGETS

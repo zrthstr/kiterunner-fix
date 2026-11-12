@@ -48,6 +48,9 @@ func ParseFileWithLen(in string) (FileLen, error) {
 	if err != nil {
 		return FileLen{Filename: in}, fmt.Errorf("failed to parse max length. Integer expected: %w", err)
 	}
+	if val < 0 {
+		return FileLen{Filename: in}, fmt.Errorf("max length must not be negative: %d", val)
+	}
 
 	return FileLen{
 		Filename:  before,
@@ -82,7 +85,12 @@ func ParseFile(filename string) ([]*http.Target, error) {
 	ret := make([]*http.Target, 0)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		r, err := ParseDomain(scanner.Text())
+		// blank lines (e.g. a trailing newline) used to become targets without a host
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		r, err := ParseDomain(line)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse domain: %w", err)
 		}
@@ -112,8 +120,12 @@ func ParseStdin(ctx context.Context) (chan []*http.Target, error) {
 		scanner := bufio.NewScanner(os.Stdin)
 		defer cancel()
 		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
 			inputmu.Lock()
-			input = append(input, scanner.Text())
+			input = append(input, line)
 			inputmu.Unlock()
 
 			select {
@@ -198,6 +210,14 @@ func ParseDomain(domain string) ([]*http.Target, error) {
 	parsed, err := url.Parse(domain)
 	if err != nil {
 		return nil, err
+	}
+	if parsed.Hostname() == "" {
+		return nil, fmt.Errorf("no host in %q", domain)
+	}
+	if p := parsed.Port(); p != "" {
+		if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 {
+			return nil, fmt.Errorf("invalid port %q in %q", p, domain)
+		}
 	}
 
 	if parsed.Port() == "" && guessProto {

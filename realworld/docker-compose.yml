@@ -1,0 +1,24 @@
+# Real applications for the realworld e2e tests (e2e/realworld_test.go). Images are pinned by digest so a test
+# result always refers to the same application code; ports are bound to localhost only.
+#
+#   docker compose -f realworld/docker-compose.yml up -d --wait
+#   KR_E2E_REALWORLD=1 go test -run TestRealWorld -v ./e2e/
+#   docker compose -f realworld/docker-compose.yml down
+name: kr-realworld
+services:
+  # Swagger Petstore v3: Java / Jersey, validates request bodies and parameters
+  petstore:
+    image: swaggerapi/petstore3@sha256:7013040e865d642be5ddafd113116710acdb16addb0c4c59d29f0a6d68d2aa93
+    ports: ["127.0.0.1:18101:8080"]
+  # VAmPI: Python / Flask (connexion) REST API with an OpenAPI spec
+  vampi:
+    image: erev0s/vampi@sha256:0a5a224b6e14ae7da6a6ea265178ff71286ff903aec74adee98f660bb0e4ca12
+    ports: ["127.0.0.1:18102:5000"]
+  # OWASP Juice Shop: Node / Express API behind an Angular single page app that answers unknown paths with 200
+  juiceshop:
+    image: bkimminich/juice-shop@sha256:877fc77b12d72b42e486eb09b6b1711cc56514306d92006b284e7e7cf076a809
+    ports: ["127.0.0.1:18103:3000"]
+  # go-httpbin: Go net/http
+  httpbin:
+    image: mccutchen/go-httpbin@sha256:873b4fdb27fe7cc66fa12cb9362574e1b0bf31df7ca8a71b2502988327a0b8a4
+    ports: ["127.0.0.1:18104:8080"]

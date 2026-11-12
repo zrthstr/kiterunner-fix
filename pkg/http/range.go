@@ -12,9 +12,6 @@ type Range struct {
 }
 
 func (r Range) String() string {
-	if r.Min == r.Max && r.Max == 0 {
-		return ""
-	}
 	if r.Min == r.Max {
 		return strconv.Itoa(r.Min)
 	}

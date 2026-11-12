@@ -16,9 +16,14 @@ func (p *ProtoCrumb_ArrayCrumb) ProuteCrumb() *ArrayCrumb {
 	if p == nil {
 		return nil
 	}
+	el := p.ArrayCrumb.Element.GetRawCrumb()
+	if el == nil {
+		// only possible with a corrupt kite file
+		el = RandomStringCrumb{Name: p.ArrayCrumb.Name}
+	}
 	return &ArrayCrumb{
 		Name:    p.ArrayCrumb.Name,
-		Element: p.ArrayCrumb.Element.GetRawCrumb(),
+		Element: el,
 	}
 }
 
@@ -36,9 +41,14 @@ func (p *ProtoCrumb_StringCrumbCrumb) ProuteCrumb() *StringCrumbCrumb {
 	if p == nil {
 		return nil
 	}
+	child := p.StringCrumbCrumb.Child.GetRawCrumb()
+	if child == nil {
+		// only possible with a corrupt kite file
+		child = RandomStringCrumb{Name: p.StringCrumbCrumb.Name}
+	}
 	return &StringCrumbCrumb{
 		Name:  p.StringCrumbCrumb.Name,
-		Child: p.StringCrumbCrumb.Child.GetRawCrumb(),
+		Child: child,
 	}
 }
 
@@ -53,17 +63,24 @@ func FromCrumbs(in []Crumb) (ret []ProtoCrumb) {
 	return ret
 }
 
+// GetRawCrumb returns the crumb, or nil if there is none. A corrupt kite file can contain an empty crumb, which
+// used to panic
 func (m *ProtoCrumb) GetRawCrumb() Crumb {
-	if m != nil {
-		tmp := m.Crumb.(UnwrapCrumber).UnwrapCrumb()
-		return tmp
+	if m == nil {
+		return nil
 	}
-	return nil
+	u, ok := m.Crumb.(UnwrapCrumber)
+	if !ok || u == nil {
+		return nil
+	}
+	return u.UnwrapCrumb()
 }
 
 func FromProtoCrumbs(in []ProtoCrumb) (ret []Crumb) {
 	for _, v := range in {
-		ret = append(ret, v.GetRawCrumb())
+		if c := v.GetRawCrumb(); c != nil {
+			ret = append(ret, c)
+		}
 	}
 	return ret
 }
