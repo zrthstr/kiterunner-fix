@@ -24,6 +24,9 @@ func (j *job) HTTPRequest() *http.Request {
 func (j *job) reset() {
 	j.t = nil
 	j.routes = j.routes[:0]
+	// jobs are pooled and the baselines are appended on acquire. Without clearing these, a reused job keeps
+	// the wildcard baselines of whatever target used it previously, and valid results get discarded
+	j.wcr = j.wcr[:0]
 	j.client = nil
 }
 

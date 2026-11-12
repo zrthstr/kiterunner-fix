@@ -16,7 +16,19 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// resultKey identifies a result by target and route. Routes are shared between the quick and full scan
+type resultKey struct {
+	target string
+	route  *http.Route
+}
+
 func runWithProgress(ctx context.Context, pbEnabled bool, routes http.RouteMap, targets []*http.Target, wcopts []kiterunner.ConfigOption) ([]*kiterunner.Result, error) {
+	return runWithProgressSkip(ctx, pbEnabled, routes, targets, wcopts, nil)
+}
+
+// runWithProgressSkip runs the scan, but will not log results that are present in alreadyLogged.
+// This is used so the full scan doesn't print the results already printed by the quick scan
+func runWithProgressSkip(ctx context.Context, pbEnabled bool, routes http.RouteMap, targets []*http.Target, wcopts []kiterunner.ConfigOption, alreadyLogged map[resultKey]struct{}) ([]*kiterunner.Result, error) {
 	select {
 	case <-ctx.Done():
 		return nil, nil
@@ -34,7 +46,16 @@ func runWithProgress(ctx context.Context, pbEnabled bool, routes http.RouteMap, 
 	}
 	e := kiterunner.NewEngine(routes, wcopts...)
 
-	res, err := e.RunCallback(ctx, targets, kiterunner.LogResult)
+	logResult := kiterunner.LogResult
+	if len(alreadyLogged) > 0 {
+		logResult = func(r *kiterunner.Result, c *kiterunner.Config) {
+			if _, ok := alreadyLogged[resultKey{string(r.Target.Bytes()), r.Route}]; ok {
+				return
+			}
+			kiterunner.LogResult(r, c)
+		}
+	}
+	res, err := e.RunCallback(ctx, targets, logResult)
 	if err != nil {
 		return res, fmt.Errorf("failed to scan: %w", err)
 	}
@@ -176,6 +197,7 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 		}
 	}
 
+	alreadyLogged := make(map[resultKey]struct{})
 	if len(s.prouteAPIs) != 0 && !s.KitebuilderFullScan {
 		// perform a quick scan with minimal routes (one per source)
 		log.Debug().
@@ -186,6 +208,9 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 		res, err := runWithProgress(ctx, s.ProgressBar, quickRoutes, targets, wcopts)
 		if err != nil {
 			return err
+		}
+		for _, v := range res {
+			alreadyLogged[resultKey{string(v.Target.Bytes()), v.Route}] = struct{}{}
 		}
 
 		// common case, where the user exits the first scan
@@ -249,7 +274,7 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 		Int("targets", len(targets)).
 		Msg("beginning scan")
 
-	res, err := runWithProgress(ctx, s.ProgressBar, routes, targets, wcopts)
+	res, err := runWithProgressSkip(ctx, s.ProgressBar, routes, targets, wcopts, alreadyLogged)
 	if err != nil {
 		return err
 	}
@@ -308,6 +333,8 @@ func ScanStdin(ctx context.Context, opts ...ScanOption) error {
 					}
 
 					for _, v := range targets {
+						// the engine requires every target to have a context, same as ScanDomainOrFile
+						v.SetContext(ctx)
 						total += 1
 						if pb != nil {
 							pb.AddTotal(int64(len(routeSlice)))
@@ -322,6 +349,8 @@ func ScanStdin(ctx context.Context, opts ...ScanOption) error {
 	}()
 
 	kiterunner.LogResultsChan(ctx, rx, e.Config())
-	pb.Requests.Finish()
+	if pb != nil {
+		pb.Requests.Finish()
+	}
 	return nil
 }

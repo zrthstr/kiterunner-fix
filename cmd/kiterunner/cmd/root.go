@@ -38,8 +38,10 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initLogging)
+	// the config must be loaded before logging is initialized, otherwise output/verbose/quiet from the
+	// config file are ignored
 	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initLogging)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.kiterunner.yaml)")
 
@@ -63,7 +65,7 @@ func initLogging() {
 	}
 	log.Debug().Str("level", level).Str("format", viper.GetString("output")).Msg("custom log settings")
 
-	if Output == "pretty" && !viper.GetBool("quiet") {
+	if viper.GetString("output") == "pretty" && !viper.GetBool("quiet") {
 		art.WriteArtBytes(os.Stderr)
 	}
 }

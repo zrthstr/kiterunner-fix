@@ -105,9 +105,10 @@ func (v *WildcardResponseValidator) Validate(r http.Response, wildcardResponses 
 
 	for _, wr := range wildcardResponses {
 		// perform our wildcard detection check
-		if r.StatusCode == wr.DefaultStatusCode ||
-			(r.StatusCode-wr.DefaultStatusCode < 50) { // handle an edge case where we get load balanced. and
-			// the load balanced servers respond on different statuscodes but with the same body
+		// handle an edge case where we get load balanced, and the load balanced servers respond on
+		// different (but close) statuscodes with the same body. This must be the absolute difference,
+		// otherwise every statuscode below the baseline (e.g. a 200 vs a 404 baseline) is treated as wildcard
+		if scDiff := r.StatusCode - wr.DefaultStatusCode; scDiff > -50 && scDiff < 50 {
 
 			expectedAdjustedLength := wr.AdjustedContentLength + (wr.AdjustmentScale * basePathLen)
 

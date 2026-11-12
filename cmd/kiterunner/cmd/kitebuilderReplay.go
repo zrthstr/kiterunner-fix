@@ -39,18 +39,27 @@ kr kb replay -w routes.kite --proxy http://localhost:8080 "POST    403 [    126,
 			host string
 		)
 
-		if len(args) == 1 {
+		switch len(args) {
+		case 1:
 			rg := regexp.MustCompile(`(\w+).*\[.*\] (https?://[^/]+)([^ ]+).* (.*)$`)
 			matches := rg.FindStringSubmatch(args[0])
+			if matches == nil {
+				log.Fatal().Str("input", args[0]).Msg("failed to parse result line. expected output from kr scan, e.g. \"POST    400 [    138,    5,  11] https://host/path 0cc39f...\"")
+			}
 			ksuid = matches[4]
 			method = matches[1]
 			path = matches[3]
 			host = matches[2]
-		} else if len(args) == 3 {
+		case 3, 4:
+			// <ksuid> <method> <route> [host]. without a host the request is only printed, not sent
 			ksuid = args[0]
 			method = args[1]
 			path = args[2]
-			host = args[3]
+			if len(args) == 4 {
+				host = args[3]
+			}
+		default:
+			log.Fatal().Int("args", len(args)).Msg("expected either a full result line, or <ksuid> <method> <route> [host]")
 		}
 
 		if err := kitebuilder.Replay(context.Context(), kitebuilderFile, ksuid, method, path, host, proxy); err != nil {

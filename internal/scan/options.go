@@ -143,15 +143,25 @@ func NewDefaultScanOptions() *ScanOptions {
 
 // FilteredRoutes will return the routes that match have a source in s.FilterAPIs. If s.FilterAPIs is empty
 // then this will return s.Routes
+// If s.ForceMethod is set, the returned routes will have their method overridden
 func (s ScanOptions) FilteredRoutes() (ret []*http.Route) {
 	if len(s.FilterAPIs) == 0 {
-		return s.Routes
-	}
-	for _, v := range s.Routes {
-		if _, ok := s.FilterAPIs[v.Source]; !ok {
-			continue
+		ret = s.Routes
+	} else {
+		for _, v := range s.Routes {
+			if _, ok := s.FilterAPIs[v.Source]; !ok {
+				continue
+			}
+			ret = append(ret, v)
 		}
-		ret = append(ret, v)
+	}
+
+	if s.ForceMethod != "" {
+		// the method string is validated when the option is applied
+		m, _ := http.MethodFromString(s.ForceMethod)
+		for _, v := range ret {
+			v.Method = m
+		}
 	}
 	return ret
 }
@@ -169,17 +179,6 @@ func (s ScanOptions) Validate() error {
 		return fmt.Errorf("no routes loaded. please specify some")
 	}
 
-	// Update the method
-	if s.ForceMethod != "" {
-		m, err := http.MethodFromString(s.ForceMethod)
-		if err != nil {
-			return fmt.Errorf("failed to parse method %s: %w", s.ForceMethod, err)
-		}
-		for _, v := range s.Routes {
-			v.Method = m
-		}
-	}
-
 	if len(s.SuccessStatusCodes) == 0 && len(s.FailStatusCodes) == 0 {
 		return fmt.Errorf("no status codes in success or fail list")
 	}
@@ -189,6 +188,11 @@ func (s ScanOptions) Validate() error {
 
 func ForceMethod(method string) ScanOption {
 	return func(o *ScanOptions) error {
+		if method != "" {
+			if _, err := http.MethodFromString(method); err != nil {
+				return fmt.Errorf("failed to parse method %s: %w", method, err)
+			}
+		}
 		o.ForceMethod = method
 		return nil
 	}
@@ -302,23 +306,40 @@ func LoadTextWordlist(fns []string, extensions []string, dirsearchCompatabilityM
 					v = append([]byte("/"), v...)
 				}
 
-				o.Routes = append(o.Routes, &http.Route{Method: http.GET, Path: v})
-
-				// do all the extensions
-				for _, ext := range extensions {
-					path := []byte( v )
-					if dirsearchCompatabilityMode {
-						path = bytes.Replace(path, []byte("%EXT%"), []byte( ext ), -1)
-					} else {
-						path = append(path, "."...)
-						path = append(path, ext...)
-					}
-					o.Routes = append(o.Routes, &http.Route{Method: http.GET, Path: path})
-				}
+				o.Routes = append(o.Routes, wordRoutes(v, extensions, dirsearchCompatabilityMode)...)
 			}
 		}
 		return nil
 	}
+}
+
+var extPlaceholder = []byte("%EXT%")
+
+// wordRoutes builds the GET routes for a single wordlist entry (which must already start with /).
+// In normal mode the word is used as is, plus once with each extension appended.
+// In dirsearch compatibility mode, words containing %EXT% are expanded once per extension (the raw
+// placeholder is never requested), and words without it are used as is.
+func wordRoutes(word []byte, extensions []string, dirsearchCompatabilityMode bool) []*http.Route {
+	if dirsearchCompatabilityMode && len(extensions) > 0 && bytes.Contains(word, extPlaceholder) {
+		ret := make([]*http.Route, 0, len(extensions))
+		for _, ext := range extensions {
+			ret = append(ret, &http.Route{Method: http.GET, Path: bytes.Replace(word, extPlaceholder, []byte(ext), -1)})
+		}
+		return ret
+	}
+
+	ret := []*http.Route{{Method: http.GET, Path: word}}
+	if dirsearchCompatabilityMode {
+		return ret
+	}
+	for _, ext := range extensions {
+		path := make([]byte, 0, len(word)+1+len(ext))
+		path = append(path, word...)
+		path = append(path, '.')
+		path = append(path, ext...)
+		ret = append(ret, &http.Route{Method: http.GET, Path: path})
+	}
+	return ret
 }
 
 func LoadAssetnoteWordlist(fns []string, extensions []string, dirsearchCompatabilityMode bool) ScanOption {
@@ -353,7 +374,7 @@ func LoadAssetnoteWordlist(fns []string, extensions []string, dirsearchCompatabi
 				return fmt.Errorf("failed to load words: %w", err)
 			}
 
-			if maxLen > 0 {
+			if maxLen > 0 && maxLen < len(w) {
 				w = w[:maxLen]
 			}
 			for _, vv := range w {
@@ -365,18 +386,7 @@ func LoadAssetnoteWordlist(fns []string, extensions []string, dirsearchCompatabi
 				if vv[0] != '/' {
 					vv = "/" + vv
 				}
-				o.Routes = append(o.Routes, &http.Route{Method: http.GET, Path: []byte( vv )})
-
-				for _, ext := range extensions {
-					path := []byte( vv )
-					if dirsearchCompatabilityMode {
-						path = bytes.Replace(path, []byte("%EXT%"), []byte( ext ), -1)
-					} else {
-						path = append(path, "."...)
-						path = append(path, ext...)
-					}
-					o.Routes = append(o.Routes, &http.Route{Method: http.GET, Path: path})
-				}
+				o.Routes = append(o.Routes, wordRoutes([]byte(vv), extensions, dirsearchCompatabilityMode)...)
 			}
 		}
 
@@ -448,7 +458,11 @@ func LoadKitebuilderFile(fns []string) ScanOption {
 			var merr *multierror.Error
 			apis, err := proute.DecodeAPIProtoFile(filename)
 			if err != nil {
-				return fmt.Errorf("failed to decode kite file: %w", err)
+				if strings.HasSuffix(strings.ToLower(filename), ".json") {
+					return fmt.Errorf("failed to decode kite file %s: -w expects a compiled .kite file, "+
+						"convert it first with `kr kb compile %s out.kite`: %w", filename, filename, err)
+				}
+				return fmt.Errorf("failed to decode kite file %s: %w", filename, err)
 			}
 			o.prouteAPIs = append(o.prouteAPIs, apis...)
 

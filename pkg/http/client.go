@@ -27,8 +27,14 @@ func NewHTTPClient(host string, tls bool) *HTTPClient {
 		Addr:      host,
 		IsTLS:     tls,
 		TLSConfig: defaultTLSConfig,
+		RetryIf:   noRetry,
 	}
 }
+
+// noRetry disables fasthttp's retrying of idempotent requests. By default fasthttp retries GET/HEAD/PUT up to
+// 5 times on any error, including timeouts, so a single unresponsive request took 5x the configured timeout.
+// fasthttp will still retry when the server closes an idle keep-alive connection (io.EOF) before responding.
+func noRetry(_ *fasthttp.Request) bool { return false }
 
 // Config provides all the options available to a request, this is used by DoClient
 type Config struct {
@@ -77,6 +83,7 @@ func (c *Config) BackupClient() *BackupClient {
 			WriteTimeout:             c.Timeout,
 			TLSConfig:                defaultTLSConfig,
 			NoDefaultUserAgentHeader: true,
+			RetryIf:                  noRetry,
 		}
 	}
 	return c.backupClient

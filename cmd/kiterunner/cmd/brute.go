@@ -16,6 +16,8 @@ var (
 	textWordlist        = []string{}
 	extensions = []string{}
 	dirsearchCompatabilityMode =false
+	// brute has its own depth variable. sharing preflightDepth with scan meant scan's default (1) overwrote ours (0)
+	brutePreflightDepth int64 = 0
 )
 
 // bruteCmd represents the scan command
@@ -67,7 +69,7 @@ cat hosts | kr brute - -w wordlist.txt -e aspx,asmx,ashx,asp --dirsearch-compat
 			scan.WildcardDetection(wildcardDetection),
 			scan.ProgressBarEnabled(progressBar),
 			scan.QuarantineThreshold(quarantineThreshold),
-			scan.PreflightDepth(preflightDepth),
+			scan.PreflightDepth(brutePreflightDepth),
 			scan.Precheck(!disablePrecheck),
 		}
 
@@ -128,7 +130,7 @@ func init() {
 	bruteCmd.Flags().BoolVar(&progressBar, "progress", progressBar, "a progress bar while scanning. by default enabled only on Stderr")
 	bruteCmd.Flags().Int64Var(&quarantineThreshold, "quarantine-threshold", quarantineThreshold, "if the host return N consecutive hits, we quarantine the host as wildcard. Set to 0 to disable")
 
-	bruteCmd.Flags().Int64VarP(&preflightDepth, "preflight-depth", "d", 0, "when performing preflight checks, what directory depth do we attempt to check. 0 means that only the docroot is checked")
+	bruteCmd.Flags().Int64VarP(&brutePreflightDepth, "preflight-depth", "d", brutePreflightDepth, "when performing preflight checks, what directory depth do we attempt to check. 0 means that only the docroot is checked")
 	bruteCmd.Flags().StringVar(&profileName, "profile-name", profileName, "name for profile output file")
 
 	bruteCmd.Flags().StringSliceVar(&filterAPIs, "filter-api", filterAPIs, "only scan apis matching this ksuid")
