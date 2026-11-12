@@ -2,28 +2,48 @@ name: Go
 
 on:
   push:
-    branches:
-      - main
-      - next
   pull_request:
-    branches:
-      - next
-      - main
 
 jobs:
-
-  build:
+  build-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.15
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-    - name: Build
-      run: go build -v ./...
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "these files are not gofmt'ed:"
+            echo "$unformatted"
+            exit 1
+          fi
 
-    - name: Test
-      run: go test -v ./...
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -v ./...
+
+      # the engine tests in pkg/kiterunner need the bundled test server on ports 14000-15001.
+      # without it they are skipped, so start it to actually exercise the scanner
+      - name: Start test server
+        run: |
+          go build -o "$RUNNER_TEMP/testserver" ./cmd/testServer
+          "$RUNNER_TEMP/testserver" -p=14000-15001 > "$RUNNER_TEMP/testserver.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:15000/ && exit 0
+            sleep 1
+          done
+          echo "test server did not come up"; cat "$RUNNER_TEMP/testserver.log"; exit 1
+
+      - name: Test
+        run: go test -count=1 -timeout 5m ./...
+
+      - name: Test (race detector)
+        run: go test -count=1 -race -timeout 10m ./...
