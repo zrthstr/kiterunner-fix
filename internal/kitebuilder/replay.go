@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/assetnote/kiterunner/pkg/http"
-	"github.com/assetnote/kiterunner/pkg/log"
-	"github.com/assetnote/kiterunner/pkg/proute"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 )
 
 func Replay(ctx context.Context, kitefile string, kuid string, method string, path string, host string, proxy string) error {

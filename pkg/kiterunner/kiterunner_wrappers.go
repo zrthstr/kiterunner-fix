@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/assetnote/kiterunner/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 // Run will perform the same operation as RunAsync. This wraps the channels with allocated structs and returns the results

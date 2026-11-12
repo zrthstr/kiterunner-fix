@@ -3,9 +3,9 @@ package kiterunner
 import (
 	"fmt"
 
-	"github.com/assetnote/kiterunner/pkg/convert"
-	"github.com/assetnote/kiterunner/pkg/http"
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/convert"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 // RequestValidator is an interface that lets you add custom validators for what are good and bad responses

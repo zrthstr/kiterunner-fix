@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/assetnote/kiterunner/pkg/errors"
-	"github.com/assetnote/kiterunner/pkg/kitebuilder"
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/errors"
+	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/hashicorp/go-multierror"
 )
 

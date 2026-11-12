@@ -1,4 +1,4 @@
-module github.com/assetnote/kiterunner
+module github.com/zrthstr/kiterunner-fix
 
 go 1.15
 

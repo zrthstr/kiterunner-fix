@@ -7,7 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	humanize "github.com/dustin/go-humanize"
 )
 

@@ -3,7 +3,7 @@ package kiterunner
 import (
 	"sync"
 
-	"github.com/assetnote/kiterunner/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 type job struct {

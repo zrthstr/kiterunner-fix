@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/assetnote/kiterunner/internal/wordlist"
-	"github.com/assetnote/kiterunner/pkg/convert"
-	errors2 "github.com/assetnote/kiterunner/pkg/errors"
-	"github.com/assetnote/kiterunner/pkg/http"
-	"github.com/assetnote/kiterunner/pkg/kitebuilder"
-	"github.com/assetnote/kiterunner/pkg/kiterunner"
-	"github.com/assetnote/kiterunner/pkg/log"
-	"github.com/assetnote/kiterunner/pkg/proute"
+	"github.com/zrthstr/kiterunner-fix/internal/wordlist"
+	"github.com/zrthstr/kiterunner-fix/pkg/convert"
+	errors2 "github.com/zrthstr/kiterunner-fix/pkg/errors"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/kitebuilder"
+	"github.com/zrthstr/kiterunner-fix/pkg/kiterunner"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 	"github.com/hashicorp/go-multierror"
 )
 

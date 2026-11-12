@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/assetnote/kiterunner/pkg/http"
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 // CheckInterval indicates how many requests a worker thread will process before checking for context cancellation

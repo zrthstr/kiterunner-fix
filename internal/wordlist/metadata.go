@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/assetnote/kiterunner/pkg/log"
-	"github.com/assetnote/kiterunner/pkg/proute"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 )
 
 type WordlistMetadata struct {

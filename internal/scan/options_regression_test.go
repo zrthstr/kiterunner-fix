@@ -3,7 +3,7 @@ package scan
 import (
 	"testing"
 
-	"github.com/assetnote/kiterunner/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/stretchr/testify/assert"
 )
 

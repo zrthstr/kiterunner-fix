@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/hashicorp/go-multierror"
 )
 

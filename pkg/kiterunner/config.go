@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/assetnote/kiterunner/pkg/http"
+	"github.com/zrthstr/kiterunner-fix/pkg/http"
 )
 
 type ProgressBar interface {

@@ -2,7 +2,7 @@ syntax = 'proto3';
 
 package proute;
 
-option go_package = "github.com/assetnote/kiterunner/pkg/proute";
+option go_package = "github.com/zrthstr/kiterunner-fix/pkg/proute";
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 

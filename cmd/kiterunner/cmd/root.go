@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/assetnote/kiterunner/internal/art"
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/internal/art"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/spf13/cobra"
 
 	"github.com/mitchellh/go-homedir"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/assetnote/kiterunner/pkg/log"
+	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
 
 func PrintAPIs(apis []API) {
