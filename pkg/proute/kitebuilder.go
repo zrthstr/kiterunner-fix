@@ -59,6 +59,42 @@ func floatCrumbFromInterface(name string, v interface{}) (FloatCrumb, error) {
 // if the name is empty, we will attempt to deduce the name from the schema name.
 // Neither of these are always possible, if all else fails it just becomes a string.
 // This handles a Typer interface so it can handle the Parameter and the Schema types, (both are kinda similar)
+// dateCrumb returns a recent timestamp in the format a date/date-time schema expects (OpenAPI: RFC 3339 full-date
+// and date-time). Unix timestamps were sent before, which validating APIs reject
+func dateCrumb(name, format string) Crumb {
+	t := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Second)
+	f := strings.ToLower(strings.TrimSpace(format))
+	switch {
+	case strings.Contains(f, "rfc1123"):
+		return StaticCrumb{K: name, V: t.Format(time.RFC1123)}
+	case f == "date":
+		return StaticCrumb{K: name, V: t.Format("2006-01-02")}
+	}
+	return StaticCrumb{K: name, V: t.Format(time.RFC3339)}
+}
+
+// enumCrumb returns a fixed crumb holding the first usable enum value, keeping its json type
+func enumCrumb(name string, enum []interface{}) (Crumb, bool) {
+	for _, e := range enum {
+		switch ev := e.(type) {
+		case string:
+			return StaticCrumb{K: name, V: ev}, true
+		case bool:
+			return BoolCrumb{Name: name, Fixed: true, Val: ev}, true
+		case float64:
+			if ev == float64(int64(ev)) {
+				return IntCrumb{Name: name, Fixed: true, Val: int64(ev)}, true
+			}
+			return FloatCrumb{Name: name, Fixed: true, Val: ev}, true
+		case int:
+			return IntCrumb{Name: name, Fixed: true, Val: int64(ev)}, true
+		case int64:
+			return IntCrumb{Name: name, Fixed: true, Val: ev}, true
+		}
+	}
+	return nil, false
+}
+
 // This way we don't need to duplicate logic to handle different types. but it might be a bad idea later
 func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 	if name == "" {
@@ -69,7 +105,14 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 	}
 	var merr *multierror.Error
 
-	switch v.GetType() {
+	// a value from the enum is the only thing a validating API accepts. enums are on ~7% of the parameters
+	// in assetnote's routes dataset, and used to get a random value
+	if c, ok := enumCrumb(name, v.GetEnum()); ok {
+		return c, nil
+	}
+
+	// the dataset contains types like "String" and "boolean "
+	switch strings.ToLower(strings.TrimSpace(v.GetType())) {
 	case "null": // not sure if this is sufficient, to put {} instead of null
 		return ObjectCrumb{Name: name}, nil
 	case "", "object", "json": // this case also catches the "body" case, but we treat it the same
@@ -183,11 +226,8 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 			fixed = true
 		}
 		return BoolCrumb{Name: name, Fixed: fixed, Val: dbool}, nil
-	case "datetime", "date-time":
-		fallthrough // not sure if this is acceptable behaviour but we will do so until told otherwise
-	case "date":
-		// Most places just acecpt unix. so just pick some time recently.
-		return IntCrumb{Name: name, Fixed: true, Val: time.Now().UTC().Add(-1 * time.Hour).Unix()}, nil
+	case "datetime", "date-time", "date":
+		return dateCrumb(name, v.GetType()), nil
 	case "file":
 		// TODO: implement a better file
 		return StaticCrumb{K: name, V: "/etc/passwd"}, nil
@@ -295,8 +335,7 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 				// TODO: implement proper URL crumb
 				return StaticCrumb{K: name, V: "http://example.com"}, nil
 			case "date", "datetime", "date-time":
-				// assumption that date can just be a UTC timestamp
-				return StringCrumbCrumb{Name: name, Child: IntCrumb{Name: name, Fixed: true, Val: time.Now().UTC().Add(-1 * time.Hour).Unix()}}, nil
+				return dateCrumb(name, f), nil
 			case "int64", "int32", "int", "uint64", "integer", "long", "int-or-string":
 				return StringCrumbCrumb{Name: name, Child: IntCrumb{Name: name}}, nil
 			case "float64", "float32", "float":
@@ -313,9 +352,8 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 				fallthrough
 			default:
 				if strings.Contains(f, "date") {
-					// assuming that date can just be a utc timestamp. some people specify dd/mm/yyyy but i cbf
-					// parsing this into a usable format. thats way too much ML
-					return StringCrumbCrumb{Name: name, Child: IntCrumb{Name: name, Fixed: true, Val: time.Now().UTC().Add(-1 * time.Hour).Unix()}}, nil
+					// e.g. date-time-rfc1123 (common in azure specs)
+					return dateCrumb(name, f), nil
 				} else if v.GetFormat() != "" { // it has a format that we don't know how to handle
 					merr = multierror.Append(merr, &errors.ParserError{
 						Context: name,
@@ -468,10 +506,10 @@ func FromKitebuilderAPI(src kitebuilder.API) (API, error) {
 					})
 				}
 
-				// this is a bad case, since we've gone through our huge as fuck switch statement and we havent
-				// found an appropriate type. Probably should notify the user or something
+				// no crumb could be built for this parameter: skip it (the error is reported above) instead of
+				// exiting the whole program over one odd parameter in a large wordlist
 				if c == nil {
-					log.Fatal().Str("type", v.Type).Str("name", v.Name).Str("In", v.In).Msg("failed to assign type after switch")
+					continue
 				}
 
 				// handle content-type explicitly because not everyone puts it in the right place
@@ -496,8 +534,8 @@ func FromKitebuilderAPI(src kitebuilder.API) (API, error) {
 					}
 				}
 
-				// Now we determine where this parameter goes..
-				switch strings.ToLower(v.In) {
+				// Now we determine where this parameter goes.. (the dataset contains values like " formData")
+				switch strings.ToLower(strings.TrimSpace(v.In)) {
 				case "body", "formdata":
 					r.BodyCrumbs = append(r.BodyCrumbs, c)
 				case "header", "headers":

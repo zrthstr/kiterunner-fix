@@ -33,7 +33,7 @@ func (r Route) QueryParams(generate bool) []KV {
 	if generate || len(r.queryParams) == 0 {
 		r.queryParams = r.queryParams[:0]
 		for _, v := range r.QueryCrumbs {
-			r.queryParams = append(r.queryParams, KV{Key: v.Key(), Value: v.Value()})
+			r.queryParams = append(r.queryParams, KV{Key: v.Key(), Value: scalarValue(v)})
 		}
 	}
 	return r.queryParams
@@ -123,17 +123,52 @@ func (r Route) Query(generate bool, extraParams ...KV) (string, error) {
 func (r Route) Body(generate bool, contentType ContentType) []byte {
 	if generate || len(r.body) == 0 {
 		r.body = r.body[:0]
+		enc := EncodingFor(contentType)
 		// need to handle the case of 1 xml BodyCrumb thats the entire object
 		// we don't want to wrap the object with pointless tags
-		if len(r.BodyCrumbs) == 1 && contentType == ContentTypeXML {
-			r.body = []byte(MarshalXMLCrumb(r.BodyCrumbs[0], CrumbOptContentType(contentType)))
-		} else if strings.Contains(string(contentType), "multipart/form-data") {
-			r.body = []byte(ObjectCrumb{Name: "root", Elements: r.BodyCrumbs}.Value(CrumbOptContentType(ContentTypeFormData)))
+		if len(r.BodyCrumbs) == 1 && enc == ContentTypeXML {
+			r.body = []byte(MarshalXMLCrumb(r.BodyCrumbs[0], CrumbOptContentType(enc)))
 		} else {
-			r.body = []byte(ObjectCrumb{Name: "root", Elements: r.BodyCrumbs}.Value(CrumbOptContentType(contentType)))
+			r.body = []byte(ObjectCrumb{Name: "root", Elements: r.BodyCrumbs}.Value(CrumbOptContentType(enc)))
 		}
 	}
 	return r.body
+}
+
+// EncodingFor maps a content type to the body encoding kr knows how to produce. Content types were matched
+// exactly before, so e.g. application/xml, text/json or application/json;charset=UTF-8 got a form encoded body
+func EncodingFor(ct ContentType) ContentType {
+	v := strings.ToLower(string(ct))
+	switch {
+	case strings.Contains(v, "json"):
+		return ContentTypeJSON
+	case strings.Contains(v, "xml"):
+		return ContentTypeXML
+	case strings.Contains(v, "multipart/form-data"):
+		return ContentTypeFormData
+	}
+	return ContentTypeFormEncoded
+}
+
+// PickContentType chooses the content type to send from an operation's consumes list: the first concrete
+// media type. Wildcards like */* are not valid Content-Type values
+func PickContentType(consumes []ContentType) ContentType {
+	for _, c := range consumes {
+		c = ContentType(strings.TrimSpace(string(c)))
+		if c != "" && !strings.Contains(string(c), "*") {
+			return c
+		}
+	}
+	return ContentTypeFormEncoded
+}
+
+// scalarValue is the value of a crumb used as a query parameter or header. An array is sent as one of its
+// elements, which is valid for every collectionFormat (csv, multi, pipes, ...)
+func scalarValue(c Crumb) string {
+	if a, ok := c.(ArrayCrumb); ok && a.Element != nil {
+		return scalarValue(a.Element)
+	}
+	return c.Value()
 }
 
 func (r Route) Headers(generate bool) []KV {
@@ -142,7 +177,7 @@ func (r Route) Headers(generate bool) []KV {
 		for _, v := range r.HeaderCrumbs {
 			// strip not spaces because that makes it an invalid header
 			k := stripNonSpaceWhitespace(v.Key())
-			val := stripNonSpaceWhitespace(v.Value())
+			val := stripNonSpaceWhitespace(scalarValue(v))
 			r.headers = append(r.headers, KV{Key: k, Value: val})
 		}
 	}

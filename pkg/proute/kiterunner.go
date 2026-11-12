@@ -69,13 +69,10 @@ func (r Route) ToKiterunner(extraHeaders ...KV) (*http.Route, error) {
 		ret.Headers = append(ret.Headers, http.Header{Key: h.Key, Value: h.Value})
 	}
 
-	ct := ContentTypeFormEncoded
-	if len(r.ContentType) > 0 {
-		ct = r.ContentType[0]
-		// Overwrite the form-data format with a proper boundary header
-		if strings.Contains(string(ct), "form-data") {
-			ct = "multipart/form-data; boundary=" + DefaultFormDataBoundary
-		}
+	ct := PickContentType(r.ContentType)
+	// Overwrite the form-data format with a proper boundary header
+	if EncodingFor(ct) == ContentTypeFormData {
+		ct = "multipart/form-data; boundary=" + DefaultFormDataBoundary
 	}
 	ret.Body = r.Body(true, ct)
 

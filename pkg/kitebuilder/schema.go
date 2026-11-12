@@ -62,6 +62,8 @@ type Typer interface {
 	GetMinimum() float64
 	GetMaximum() float64
 
+	GetEnum() []interface{}
+
 	GetProperties() map[string]Schema
 	GetAdditionalProperties() *Schema
 	GetSchema() *Schema
@@ -115,6 +117,7 @@ func (p Parameter) GetSchema() *Schema               { return p.Schema }
 func (p Parameter) GetAdditionalProperties() *Schema { return nil }
 func (p Parameter) GetItems() *Schema                { return p.Items }
 func (p Parameter) GetAllOf() []Schema               { return nil }
+func (p Parameter) GetEnum() []interface{}           { return p.Enum }
 
 type Schema struct {
 	Properties       map[string]Schema `json:"properties,omitempty"`
@@ -156,7 +159,7 @@ type Schema struct {
 	MinItems             uint64  `json:"minItems,omitempty" yaml:"minItems,omitempty"`
 	MaxItems             uint64  `json:"maxItems,omitempty" yaml:"maxItems,omitempty"`
 	Items                *Schema `json:"items,omitempty" yaml:"items,omitempty"`
-	AdditionalProperties *Schema `json:"additional_properties,omitempty"`
+	AdditionalProperties *Schema `json:"additionalProperties,omitempty"`
 
 	// Object
 	Required interface{} `json:"required,omitempty" yaml:"required,omitempty"`
@@ -183,6 +186,7 @@ func (s Schema) GetSchema() *Schema               { return nil }
 func (s Schema) GetAdditionalProperties() *Schema { return s.AdditionalProperties }
 func (s Schema) GetItems() *Schema                { return s.Items }
 func (s Schema) GetAllOf() []Schema               { return s.AllOf }
+func (s Schema) GetEnum() []interface{}           { return s.Enum }
 
 func (s Schema) IsZero() bool {
 	s2 := Schema{}

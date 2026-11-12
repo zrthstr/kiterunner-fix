@@ -2,7 +2,6 @@ package proute
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"mime/multipart"
@@ -267,6 +266,12 @@ func (p BasicAuthCrumb) protoCrumb() *ProtoCrumb {
 // MarshalXMLCrumb will create an XML object containing just that crumb. The object name is set to the crumb name
 // and the child value is set to the child value of the crumb
 func MarshalXMLCrumb(c Crumb, opts ...CrumbOption) string {
+	// objects and arrays render their own element. Setting their xml as the text of another element escaped
+	// it, so an xml body was "<item>&lt;item&gt;..." instead of "<item><id>..."
+	switch c.(type) {
+	case ObjectCrumb, ArrayCrumb:
+		return c.Value(opts...)
+	}
 	co := NewCrumbOptions(opts...)
 	doc := etree.NewDocument()
 	// append the header if we're the root
@@ -536,14 +541,10 @@ type StringCrumbCrumb struct {
 	Child Crumb
 }
 
+// Value is the child's value as text. It used to be json quoted, which put literal quotes into query
+// strings, headers and forms, and double quoted the value in json bodies (RawValue returned it too)
 func (s StringCrumbCrumb) Value(option ...CrumbOption) string {
-	tmp := s.Child.Value(option...)
-	v, err := json.Marshal(tmp)
-	if err != nil {
-		log.Fatal().Str("v", tmp).Err(err).Msg("failed to encode json string")
-	}
-
-	return string(v)
+	return s.Child.Value(option...)
 }
 
 func (s StringCrumbCrumb) Key() string {
