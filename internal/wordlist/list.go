@@ -15,13 +15,18 @@ import (
 )
 
 const (
+	// RemoteWordlistBase is where the wordlist manifests are published. It can be overridden with the
+	// KITERUNNER_WORDLIST_URL environment variable, e.g. to use a mirror
 	RemoteWordlistBase = "https://wordlists.assetnote.io/data/"
 )
 
 var (
+	// the manifests published at RemoteWordlistBase. technologies.json is not included: it lists hosts per
+	// technology, which are scan targets rather than wordlists
 	wordlists = []string{
 		"automated.json",
 		"manual.json",
+		"kiterunner.json",
 	}
 
 	ErrNotFound = fmt.Errorf("wordlist not found")
@@ -135,6 +140,10 @@ func getDownloadLink(html string) string {
 // nameConvert will convert the filename like httparchive_apiroutes_2021_01_28.txt into a shortname like
 // apiroutes-210128. If you supply it weird input, it'll do weird things.
 func nameConvert(in string) string {
+	// compiled kiterunner wordlists are distributed as routes-small.kite.tar.gz
+	if strings.HasSuffix(in, kiteArchiveSuffix) {
+		return strings.TrimSuffix(in, kiteArchiveSuffix)
+	}
 	// remove extension
 	in = strings.TrimSuffix(in, filepath.Ext(in))
 

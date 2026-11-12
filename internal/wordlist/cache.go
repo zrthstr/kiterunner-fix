@@ -15,7 +15,11 @@ func Save(ctx context.Context, nocache bool, names ...string) (ret []WordlistMet
 		return nil, fmt.Errorf("no names provided")
 	}
 
-	wms, err := Get(ctx, names...)
+	get := func() ([]WordlistMetadata, error) { return Get(ctx, names...) }
+	if nocache {
+		get = func() ([]WordlistMetadata, error) { return GetRemote(names...) }
+	}
+	wms, err := get()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve wordlist metadata: %w", err)
 	}
@@ -25,6 +29,8 @@ func Save(ctx context.Context, nocache bool, names ...string) (ret []WordlistMet
 		if v.Cached && !nocache {
 			continue
 		}
+		// --no-cache: download again even though a copy exists (Cache() skips cached wordlists)
+		v.Cached = false
 		canDownload = append(canDownload, v)
 	}
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 
 	humanize "github.com/dustin/go-humanize"
@@ -19,14 +18,17 @@ func GetLocalDirPanic() string {
 	return ret
 }
 
+// GetLocalDir returns the wordlist cache directory: $XDG_CACHE_HOME/kiterunner/wordlists if set, otherwise
+// ~/.cache/kiterunner/wordlists. $HOME is respected (os/user ignored it, which broke containers and CI)
 func GetLocalDir() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user: %w", err)
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "kiterunner", "wordlists"), nil
 	}
-	dir := usr.HomeDir
-	newpath := filepath.Join(dir, ".cache", "kiterunner", "wordlists")
-	return newpath, err
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to find home directory: %w", err)
+	}
+	return filepath.Join(home, ".cache", "kiterunner", "wordlists"), nil
 }
 
 func CreateLocalCache() error {

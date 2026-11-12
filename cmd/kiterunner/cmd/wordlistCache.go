@@ -23,7 +23,7 @@ you can use the alias or the full filename listed in [kr wordlist list]
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if _, err := wordlist.Save(context.Context(), noCache, args...); err != nil {
-			log.Fatal().Err(err).Msg("failed to list wordlists")
+			log.Fatal().Err(err).Msg("failed to save wordlists")
 		}
 	},
 }

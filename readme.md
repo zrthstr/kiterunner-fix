@@ -5,17 +5,24 @@
 [![Go](https://github.com/zrthstr/kiterunner-fix/actions/workflows/go-build-test.yml/badge.svg)](https://github.com/zrthstr/kiterunner-fix/actions/workflows/go-build-test.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/zrthstr/kiterunner-fix.svg)](https://pkg.go.dev/github.com/zrthstr/kiterunner-fix)
 
-> **This is a fork of [assetnote/kiterunner](https://github.com/assetnote/kiterunner) with bug fixes.**
-> Upstream is unmaintained. All credit for Kiterunner goes to Assetnote. Notable fixes in this fork:
+> **This is a maintenance fork of [assetnote/kiterunner](https://github.com/assetnote/kiterunner).**
+> Kiterunner is Assetnote's work and all credit for it goes to them. The original has not been updated since
+> 2021; this fork only tries to keep it working with today's Go, dependencies and Assetnote wordlists, and to
+> fix the bugs that got in the way. It is not a rewrite and adds no new scanning features.
 >
-> - Results were silently dropped: a 200 was compared against a 404 wildcard baseline, and baselines
->   leaked between targets through a pooled job, so multi-host scans missed valid hits
-> - Scanning targets from stdin (`kr scan - ...` / `kr brute - ...`) panicked
-> - A deadlock in the scan engine, and data races found with the race detector
-> - `--timeout` was multiplied by 5 against unresponsive hosts (fasthttp retried timeouts)
-> - `--force-method` and `--config` were ignored; `brute` ignored its default `--preflight-depth 0`
-> - `kb compile` from stdin and `kb parse` dropped all parameters, headers and bodies
-> - Dirsearch mode (`-D`) requested the literal `%EXT%`; `kb replay <ksuid> <method> <route>` panicked
+> What changed, in short:
+>
+> - **Bugs that cost results:** valid hits were silently dropped (a 200 compared against a 404 wildcard
+>   baseline, baselines leaking between targets, short 401/403 pages discarded as wildcards)
+> - **Crashes and hangs:** scanning targets from stdin, `kb replay`, a deadlock in the scan engine, data races
+> - **Flags that did nothing:** `--delay`, `--force-method`, `--config`, `brute`'s default depth, `--no-cache`;
+>   `--timeout` was effectively 5x longer against unresponsive hosts
+> - **Assetnote wordlists:** the current lists work again, including the official `routes-small` and
+>   `routes-large` kite files with `-A`; failed downloads are no longer cached
+> - **Maintenance:** current Go and dependencies, `go install` support, tests that check what kr finds
+>   (false positives and false negatives) against realistic servers, and a hardened CI
+>
+> See the [commit history](https://github.com/zrthstr/kiterunner-fix/commits/main) for the details.
 
 # Introduction
 
@@ -87,13 +94,13 @@ make test
 # symlink your binary
 ln -s $(pwd)/dist/kr /usr/local/bin/kr
 
-# compile the wordlist
-# kr kb compile <input.json> <output.kite>
-kr kb compile routes.json routes.kite
-
-# scan away
-kr scan hosts.txt -w routes.kite -x 20 -j 100 --ignore-length=1053
+# scan away. -A downloads and caches Assetnote's compiled routes wordlist on first use
+kr scan hosts.txt -A routes-small -x 20 -j 100 --ignore-length=1053
 ```
+
+`routes-small` and `routes-large` are Assetnote's compiled `.kite` wordlists. `-A` fetches them for you, but you
+can also download them and use them with `-w`, or build your own `.kite` from the JSON datasets with
+`kr kb compile routes.json routes.kite`.
 
 The JSON datasets can be found below:
 
@@ -102,8 +109,8 @@ The JSON datasets can be found below:
 
 Alternatively, it is possible to download the compile `.kite` files from the links below:
 
-- [routes-large.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-large.kite.tar.gz) (40MB compressed, 183M decompressed)
-- [routes-small.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-small.kite.tar.gz) (2MB compressed, 35MB decompressed)
+- [routes-large.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-large.kite.tar.gz) (35MB compressed, 183M decompressed), or `-A routes-large`
+- [routes-small.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-small.kite.tar.gz) (430KB compressed, 2MB decompressed), or `-A routes-small`
 
 ## AUR
 Users using a Arch based distro can download the pre-built binary from [AUR](https://aur.archlinux.org/packages/kiterunner-bin/)
@@ -122,7 +129,10 @@ kr [scan|brute] <input> [flags]
 - `<input>` can be a file, a domain, or URI. we'll figure it out for you. See  [Input/Host Formatting](#inputhost-formatting) for more details
 
 ```
-# Just have a list of hosts and no wordlist
+# Just have a list of hosts and no wordlist: use Assetnote's compiled API routes
+kr scan hosts.txt -A=routes-small -x 5 -j 100 --fail-status-codes 400,401,404,403,501,502,426,411
+
+# Or the monthly generated API routes list from HTTP Archive, first 20000 lines
 kr scan hosts.txt -A=apiroutes-260227:20000 -x 5 -j 100 --fail-status-codes 400,401,404,403,501,502,426,411
 
 # You have your own wordlist but you want assetnote wordlists too
@@ -283,36 +293,40 @@ Naturally, increasing the depth will increase the accuracy of your scans, howeve
 
 ## Using Assetnote Wordlists
 
-We provide inbuilt downloading and caching of wordlists from assetnote.io. You can use these with the `-A` flag which receives a comma delimited list of aliases, or fullnames.
+Kiterunner downloads and caches the wordlists published at [wordlists.assetnote.io](https://wordlists.assetnote.io/).
+Use them with the `-A` flag, which takes a comma delimited list of aliases or full filenames. `kr wordlist list`
+shows all of them; `kr wordlist save <name>` downloads one ahead of time (`--no-cache` to fetch it again).
 
-You can get a full list of all the Assetnote wordlists with `kr wordlist list`. The dated aliases (e.g. `apiroutes-260227`) change as Assetnote publishes new lists, so check `kr wordlist list` for the current names; the table below is example output.
+- **Automatically generated** (`automated.json`): generated monthly from HTTP Archive. The aliases carry the date,
+  e.g. `apiroutes-260227`, and change when Assetnote publishes new lists, so check `kr wordlist list` for the
+  current names.
+- **Manually generated** (`manual.json`): e.g. `raft-large-words`, `bak`, `dot_filenames`.
+- **Kiterunner** (`kiterunner.json`): `routes-small` and `routes-large` are compiled `.kite` wordlists for
+  `kr scan`; `swagger-wordlist` is a plain wordlist for `kr brute`.
+- The **technology to host mappings** on the site are lists of hosts, not wordlists. Download them from the site
+  and pass them as the input to `kr scan`.
 
-The wordlists when used, are cached in `~/.cache/kiterunner/wordlists`. When used, these are compiled from `.txt` -> `.kite` 
+Wordlists are cached in `~/.cache/kiterunner/wordlists` (or `$XDG_CACHE_HOME/kiterunner/wordlists`). Plain
+wordlists used with `kr scan` are compiled from `.txt` to `.kite` on first use. Set `KITERUNNER_WORDLIST_URL`
+to use a mirror of `https://wordlists.assetnote.io/data/`.
 
 ```
-+-----------------------------------+-------------------------------------------------------+----------------+---------+----------+--------+
-|               ALIAS               |                       FILENAME                        |     SOURCE     |  COUNT  | FILESIZE | CACHED |
-+-----------------------------------+-------------------------------------------------------+----------------+---------+----------+--------+
-| 2m-subdomains                     | 2m-subdomains.txt                                     | manual.json    | 2167059 | 28.0mb   | false  |
-| asp_lowercase                     | asp_lowercase.txt                                     | manual.json    |   24074 | 1.1mb    | false  |
-| aspx_lowercase                    | aspx_lowercase.txt                                    | manual.json    |   80293 | 4.4mb    | false  |
-| bak                               | bak.txt                                               | manual.json    |   31725 | 634.8kb  | false  |
-| best-dns-wordlist                 | best-dns-wordlist.txt                                 | manual.json    | 9996122 | 139.0mb  | false  |
-| cfm                               | cfm.txt                                               | manual.json    |   12100 | 260.3kb  | true   |
-| do                                | do.txt                                                | manual.json    |  173152 | 4.8mb    | false  |
-| dot_filenames                     | dot_filenames.txt                                     | manual.json    | 3191712 | 71.3mb   | false  |
-| html                              | html.txt                                              | manual.json    | 4227526 | 107.7mb  | false  |
-| apiroutes-201120                  | httparchive_apiroutes_2020_11_20.txt                  | automated.json |  953011 | 45.3mb   | false  |
-| apiroutes-210128                  | httparchive_apiroutes_2021_01_28.txt                  | automated.json |  225456 | 6.6mb    | false  |
-| apiroutes-210228                  | httparchive_apiroutes_2021_02_28.txt                  | automated.json |  223544 | 6.5mb    | true   |
-| apiroutes-210328                  | httparchive_apiroutes_2021_03_28.txt                  | automated.json |  215114 | 6.3mb    | false  |
-| aspx-201118                       | httparchive_aspx_asp_cfm_svc_ashx_asmx_2020_11_18.txt | automated.json |   63200 | 1.7mb    | false  |
-| aspx-210128                       | httparchive_aspx_asp_cfm_svc_ashx_asmx_2021_01_28.txt | automated.json |   46286 | 928.7kb  | false  |
-| aspx-210228                       | httparchive_aspx_asp_cfm_svc_ashx_asmx_2021_02_28.txt | automated.json |   43958 | 883.3kb  | false  |
-| aspx-210328                       | httparchive_aspx_asp_cfm_svc_ashx_asmx_2021_03_28.txt | automated.json |   45928 | 926.8kb  | false  |
-| cgi-201118                        | httparchive_cgi_pl_2020_11_18.txt                     | automated.json |    2637 | 44.0kb   | false  |
-
++-----------------------------------+-------------------------------------------------------+-----------------+---------+----------+--------+
+|               ALIAS               |                       FILENAME                        |     SOURCE      |  COUNT  | FILESIZE | CACHED |
++-----------------------------------+-------------------------------------------------------+-----------------+---------+----------+--------+
+| bak                               | bak.txt                                               | manual.json     | 31725   | 634.8kb  | false  |
+| dot_filenames                     | dot_filenames.txt                                     | manual.json     | 3191712 | 71.3mb   | false  |
+| apiroutes-260227                  | httparchive_apiroutes_2026_02_27.txt                  | automated.json  | 364056  | 10.7mb   | false  |
+| aspx-260227                       | httparchive_aspx_asp_cfm_svc_ashx_asmx_2026_02_27.txt | automated.json  | 80989   | 1.7mb    | false  |
+| directories-260227                | httparchive_directories_1m_2026_02_27.txt             | automated.json  | 703323  | 19.5mb   | false  |
+| js-260227                         | httparchive_js_2026_02_27.txt                         | automated.json  | 3292760 | 61.7mb   | false  |
+| php-260227                        | httparchive_php_2026_02_27.txt                        | automated.json  | 177015  | 3.3mb    | false  |
+| raft-large-words                  | raft-large-words.txt                                  | manual.json     | 119600  | 1.0mb    | false  |
+| routes-large                      | routes-large.kite.tar.gz                              | kiterunner.json | 139983  | 34.7mb   | false  |
+| routes-small                      | routes-small.kite.tar.gz                              | kiterunner.json | 1537    | 429.9kb  | false  |
+| swagger-wordlist                  | swagger-wordlist.txt                                  | kiterunner.json | 958872  | 27.2mb   | false  |
 <SNIP>
++-----------------------------------+-------------------------------------------------------+-----------------+---------+----------+--------+
 ```
 
 **Usage**

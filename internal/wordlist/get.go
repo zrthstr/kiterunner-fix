@@ -39,7 +39,7 @@ func Get(ctx context.Context, names ...string) (ret []WordlistMetadata, err erro
 	// Check against the remote list of what we can fetch
 	remote, err := GetRemoteWordlists()
 	if err != nil {
-		return ret, fmt.Errorf("failed to get remote wordlists")
+		return ret, fmt.Errorf("failed to get remote wordlists: %w", err)
 	}
 
 	remotegot := make(map[string]WordlistMetadata)
@@ -61,4 +61,33 @@ func Get(ctx context.Context, names ...string) (ret []WordlistMetadata, err erro
 	}
 
 	return ret, err
+}
+
+// GetRemote resolves the names against the remote manifests only, ignoring the local cache. Used when a fresh
+// copy must be downloaded: local cache entries have no download url
+func GetRemote(names ...string) (ret []WordlistMetadata, err error) {
+	if err := CreateLocalCache(); err != nil {
+		return nil, fmt.Errorf("failed to create local cache dir: %w", err)
+	}
+	remote, err := GetRemoteWordlists()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get remote wordlists: %w", err)
+	}
+	byName := make(map[string]WordlistMetadata)
+	for _, v := range remote {
+		byName[v.Filename] = v
+		byName[v.Shortname] = v
+	}
+	var unknown []string
+	for _, n := range names {
+		if v, ok := byName[n]; ok {
+			ret = append(ret, v)
+			continue
+		}
+		unknown = append(unknown, n)
+	}
+	if len(unknown) != 0 {
+		return ret, fmt.Errorf("invalid names: %v", unknown)
+	}
+	return ret, nil
 }

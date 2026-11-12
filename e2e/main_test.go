@@ -62,11 +62,17 @@ type run struct {
 // kr runs the binary with args. stdin is fed to the process (use "" for none, which is EOF).
 func kr(t *testing.T, stdin string, args ...string) run {
 	t.Helper()
+	return krEnv(t, nil, stdin, args...)
+}
+
+// krEnv is kr with extra environment variables, which override the defaults (e.g. HOME)
+func krEnv(t *testing.T, env []string, stdin string, args ...string) run {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, krBin, args...)
-	cmd.Env = append(os.Environ(), "HOME="+krHome, "NO_COLOR=1")
+	cmd.Env = append(append(os.Environ(), "HOME="+krHome, "NO_COLOR=1", "XDG_CACHE_HOME="), env...)
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
