@@ -58,11 +58,12 @@ var (
 // acquireJobSem retrieves a job semaphore from the pool. this can only be initialized once
 // TODO: make this abstraction more logical and tied to the config value
 func acquireSubpathBaselineChan(size int) subpathBaselineChan {
-	v := jobSemPool.Get()
-	if v == nil {
-		return make(subpathBaselineChan, size)
+	// pooled channels may have been created with a different capacity (e.g. by an engine with a different number
+	// of preflight routes). an undersized channel deadlocks the preflight workers, so only reuse ones that fit
+	if v, ok := jobSemPool.Get().(subpathBaselineChan); ok && cap(v) >= size {
+		return v
 	}
-	return v.(subpathBaselineChan)
+	return make(subpathBaselineChan, size)
 }
 
 // releaseJob releases a host into the shared header pool
@@ -79,11 +80,10 @@ var (
 // acquireJobSem retrieves a job semaphore from the pool. this can only be initialized once
 // TODO: make this abstraction more logical and tied to the config value
 func acquireSubpathRoutesChan(size int) subpathRoutesChan {
-	v := subpathRoutesPool.Get()
-	if v == nil {
-		return make(subpathRoutesChan, size)
+	if v, ok := subpathRoutesPool.Get().(subpathRoutesChan); ok && cap(v) >= size {
+		return v
 	}
-	return v.(subpathRoutesChan)
+	return make(subpathRoutesChan, size)
 }
 
 // releaseJob releases a host into the shared header pool

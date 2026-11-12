@@ -14,6 +14,9 @@ COUNT=5
 SHORTBUILDFLAGS=-extld 'g++' -extldflags '-static'
 BUILDFLAGS="$(SHORTBUILDFLAGS) -X 'github.com/assetnote/kiterunner/cmd/kiterunner/cmd.Version=$(GIT_TAG)' -X 'github.com/assetnote/kiterunner/cmd/kiterunner/cmd.Commit=$(GIT_COMMIT_HASH)' -X 'github.com/assetnote/kiterunner/cmd/kiterunner/cmd.Date=$(DATE)'"
 
+test:
+	$(GOTEST) ./...
+
 build:
 	mkdir -p dist
 	$(GOBUILD) -ldflags $(BUILDFLAGS) -o dist/kr ./cmd/kiterunner

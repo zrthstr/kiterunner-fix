@@ -3,9 +3,11 @@ package kiterunner
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/assetnote/kiterunner/pkg/http"
 	"github.com/assetnote/kiterunner/pkg/log"
@@ -14,6 +16,19 @@ import (
 
 func init() {
 	log.SetLevelString("error")
+}
+
+// requireTestServer skips the test unless the local test server is listening on every port
+// MakeTargets(count) will use. Start it with `make bench-up` (ports 14000-15001)
+func requireTestServer(t testing.TB, count int) {
+	t.Helper()
+	for _, port := range []int{14000, 14000 + count - 1} {
+		c, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), 500*time.Millisecond)
+		if err != nil {
+			t.Skipf("test server not reachable on localhost:%d (run `make bench-up`): %v", port, err)
+		}
+		c.Close()
+	}
 }
 
 func MakeTargets(count int) []*http.Target {
@@ -97,6 +112,7 @@ func Example_kiterunnerRunAsync() {
 }
 
 func TestKiterunnerEngineRunGoland1Async(t *testing.T) {
+	requireTestServer(t, 1)
 	routes := MakeRedirectRoutes(1, 1)
 	e := NewEngine(routes,
 		ReadBody(false),

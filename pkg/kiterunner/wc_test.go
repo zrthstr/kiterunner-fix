@@ -26,6 +26,7 @@ func TestKiterunnerEngineRun(b *testing.T) {
 	ctx := context.Background()
 	for _, test := range tests {
 		b.Run(test.name, func(t *testing.T) {
+			requireTestServer(t, test.input)
 			e := NewEngine(MakeRoutes(count), MaxParallelHosts(test.input/2+1), TargetQuarantineThreshold(0))
 			targets := MakeTargets(test.input)
 			for _, v := range targets {

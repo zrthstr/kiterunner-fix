@@ -33,7 +33,7 @@ before processing and will not parse the input as streaming input
 			}
 		} else {
 			if err := kitebuilder.ScanFile(context.Context(), filename, kitebuilder.Debug(debug)); err != nil {
-				log.Fatal().Err(err).Msg("failed to read from stdin")
+				log.Fatal().Err(err).Str("file", filename).Msg("failed to parse file")
 			}
 		}
 	},
