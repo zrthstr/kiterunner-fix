@@ -33,6 +33,7 @@ func floatCrumbFromInterface(name string, v interface{}) (FloatCrumb, error) {
 				return ret, fmt.Errorf("failed to parse float: %s: %w", vv, err)
 			}
 			ret.Fixed = true
+			ret.Val = dfloat
 		}
 	case float32:
 		ret.Fixed = true

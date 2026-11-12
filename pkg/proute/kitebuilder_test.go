@@ -194,3 +194,19 @@ func TestAPI_ToKitebuilderAPI_Reflection(t *testing.T) {
 		})
 	}
 }
+
+// string defaults are common in swagger files ("default": "10"); the parsed value must be used
+func TestFloatCrumbFromStringDefault(t *testing.T) {
+	c, err := floatCrumbFromInterface("limit", "10.5")
+	assert.Nil(t, err)
+	assert.Equal(t, FloatCrumb{Name: "limit", Fixed: true, Val: 10.5}, c)
+}
+
+func TestBoolCrumbRandom(t *testing.T) {
+	seen := map[interface{}]bool{}
+	for i := 0; i < 200 && len(seen) < 2; i++ {
+		seen[BoolCrumb{Name: "b"}.RawValue()] = true
+	}
+	assert.Equal(t, 2, len(seen), "a non fixed bool crumb must produce both true and false")
+	assert.Equal(t, true, BoolCrumb{Name: "b", Fixed: true, Val: true}.RawValue())
+}

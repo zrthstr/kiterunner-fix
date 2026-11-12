@@ -47,6 +47,7 @@ func Save(ctx context.Context, nocache bool, names ...string) (ret []WordlistMet
 	}
 
 	var merr *multierror.Error
+wait:
 	for i := 0; i < len(canDownload); i++ {
 		select {
 		case err := <-errChan:
@@ -54,7 +55,9 @@ func Save(ctx context.Context, nocache bool, names ...string) (ret []WordlistMet
 				merr = multierror.Append(merr, err)
 			}
 		case <-ctx.Done():
-			break
+			// a bare break only left the select, so a cancelled save kept waiting for every download
+			merr = multierror.Append(merr, ctx.Err())
+			break wait
 		}
 	}
 	log.Info().Int("files", len(canDownload)).Msg("completed caching")

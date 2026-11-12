@@ -44,6 +44,10 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # known vulnerabilities in dependencies, limited to code that is actually called. exact version, like the actions
+      - name: Vulnerability check
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
       - name: Build
         run: go build -v ./...
 

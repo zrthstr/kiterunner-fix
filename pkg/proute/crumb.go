@@ -159,7 +159,7 @@ func (b BoolCrumb) RawValue(...CrumbOption) interface{} {
 	if b.Fixed {
 		return b.Val
 	}
-	return rand.Intn(1) == 1
+	return rand.Intn(2) == 1
 }
 
 func (p BoolCrumb) protoCrumb() *ProtoCrumb {
