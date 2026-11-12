@@ -1,0 +1,56 @@
+name: Real world
+
+# scans real applications (realworld/docker-compose.yml: Java, Python, Node and Go stacks) and requires exactly
+# their real routes to be found. Pulls ~1GB of images, so it runs weekly and on demand instead of on every push
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  realworld:
+    name: Real applications
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # third party actions are pinned to full commit SHAs, tags are mutable. dependabot keeps them updated
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Start the applications
+        run: |
+          docker compose -f realworld/docker-compose.yml up -d
+          for port in 18101 18102 18103 18104; do
+            for _ in $(seq 1 90); do
+              curl -sf -o /dev/null "http://127.0.0.1:$port/" && break
+              sleep 2
+            done
+          done
+          docker compose -f realworld/docker-compose.yml ps
+
+      - name: Real world test
+        env:
+          KR_E2E_REALWORLD: "1"
+          KR_E2E_RACE: "1"
+        run: go test -count=1 -race -run TestRealWorld -v -timeout 20m ./e2e/
+
+      - name: Application logs
+        if: failure()
+        run: docker compose -f realworld/docker-compose.yml logs --tail 100
+
+      - name: Stop the applications
+        if: always()
+        run: docker compose -f realworld/docker-compose.yml down

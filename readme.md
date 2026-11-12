@@ -17,8 +17,11 @@
 > - **Crashes and hangs:** scanning targets from stdin, `kb replay`, a deadlock in the scan engine, data races
 > - **Flags that did nothing:** `--delay`, `--force-method`, `--config`, `brute`'s default depth, `--no-cache`;
 >   `--timeout` was effectively 5x longer against unresponsive hosts
-> - **Assetnote wordlists:** the current lists work again, including the official `routes-small` and
->   `routes-large` kite files with `-A`; failed downloads are no longer cached
+> - **Assetnote wordlists:** the current lists work again, including `routes-small` and `routes-large` with
+>   `-A`. The official `routes-small.kite` contains no parameters at all, so kr compiles `routes-small` from
+>   Assetnote's JSON instead. Failed downloads are no longer cached
+> - **Requests that APIs accept:** enums, arrays, dates, XML/JSON content types, form data and more were sent in
+>   ways a validating API rejects; single segment routes (`/metrics`) were discarded as wildcards
 > - **Maintenance:** current Go and dependencies, `go install` support, tests that check what kr finds
 >   (false positives and false negatives) against realistic servers, and a hardened CI
 >
@@ -62,6 +65,8 @@ Swagger files were collected from a number of datasources, including an internet
   * [Concurrency Settings/Going Fast](#concurrency-settingsgoing-fast)
   * [Converting between file formats](#converting-between-file-formats)
   * [Replaying requests](#replaying-requests)
+* [Testing](#testing)
+  * [Known limitations](#known-limitations)
 * [Technical Implementation](#technical-implementation)
   * [Intermediate Data Type (PRoutes)](#intermediate-data-type-proutes)
   * [Kite File Format](#kite-file-format)
@@ -87,8 +92,8 @@ Note that these do not contain the fixes from this fork.
 # build the binary
 make build
 
-# run the tests. the engine tests need the bundled test server, otherwise they are skipped
-make bench-up &   # serves ports 14000-15001
+# run the tests (see Testing below)
+make bench-up &   # serves ports 14000-15001 for the engine tests
 make test
 
 # symlink your binary
@@ -98,9 +103,11 @@ ln -s $(pwd)/dist/kr /usr/local/bin/kr
 kr scan hosts.txt -A routes-small -x 20 -j 100 --ignore-length=1053
 ```
 
-`routes-small` and `routes-large` are Assetnote's compiled `.kite` wordlists. `-A` fetches them for you, but you
-can also download them and use them with `-w`, or build your own `.kite` from the JSON datasets with
-`kr kb compile routes.json routes.kite`.
+`-A routes-small` and `-A routes-large` fetch Assetnote's API routes for you. `routes-small` is compiled locally
+from Assetnote's JSON on first use (a few seconds), because the published `routes-small.kite` has no parameters
+(no headers, query strings or bodies). `routes-large` uses the published `.kite`; to build it with kr's current
+request generator instead, compile the JSON yourself (`kr kb compile routes-large.json routes-large.kite`, about a
+minute and 3GB of memory).
 
 The JSON datasets can be found below:
 
@@ -110,7 +117,7 @@ The JSON datasets can be found below:
 Alternatively, it is possible to download the compile `.kite` files from the links below:
 
 - [routes-large.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-large.kite.tar.gz) (35MB compressed, 183M decompressed), or `-A routes-large`
-- [routes-small.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-small.kite.tar.gz) (430KB compressed, 2MB decompressed), or `-A routes-small`
+- [routes-small.kite](https://wordlists-cdn.assetnote.io/data/kiterunner/routes-small.kite.tar.gz) (430KB compressed, 2MB decompressed): has no parameters, prefer `-A routes-small`
 
 ## AUR
 Users using a Arch based distro can download the pre-built binary from [AUR](https://aur.archlinux.org/packages/kiterunner-bin/)
@@ -301,8 +308,9 @@ shows all of them; `kr wordlist save <name>` downloads one ahead of time (`--no-
   e.g. `apiroutes-260227`, and change when Assetnote publishes new lists, so check `kr wordlist list` for the
   current names.
 - **Manually generated** (`manual.json`): e.g. `raft-large-words`, `bak`, `dot_filenames`.
-- **Kiterunner** (`kiterunner.json`): `routes-small` and `routes-large` are compiled `.kite` wordlists for
-  `kr scan`; `swagger-wordlist` is a plain wordlist for `kr brute`.
+- **Kiterunner** (`kiterunner.json`): `routes-small` and `routes-large` are API route wordlists for `kr scan`
+  (`routes-small` is compiled from its JSON, see [Installation](#building-from-source)); `swagger-wordlist` is a
+  plain wordlist for `kr brute`.
 - The **technology to host mappings** on the site are lists of hosts, not wordlists. Download them from the site
   and pass them as the input to `kr scan`.
 
@@ -323,7 +331,7 @@ to use a mirror of `https://wordlists.assetnote.io/data/`.
 | php-260227                        | httparchive_php_2026_02_27.txt                        | automated.json  | 177015  | 3.3mb    | false  |
 | raft-large-words                  | raft-large-words.txt                                  | manual.json     | 119600  | 1.0mb    | false  |
 | routes-large                      | routes-large.kite.tar.gz                              | kiterunner.json | 139983  | 34.7mb   | false  |
-| routes-small                      | routes-small.kite.tar.gz                              | kiterunner.json | 1537    | 429.9kb  | false  |
+| routes-small                      | routes-small.json.tar.gz                              | kiterunner.json | 58288   | 14.6mb   | false  |
 | swagger-wordlist                  | swagger-wordlist.txt                                  | kiterunner.json | 958872  | 27.2mb   | false  |
 <SNIP>
 +-----------------------------------+-------------------------------------------------------+-----------------+---------+----------+--------+
@@ -435,6 +443,34 @@ X-Amzn-Requestid: 7e6b2ea1-c662-4671-9eaa-e8cd31b463f2
 
 User is not authorized to perform this action
 ```
+
+# Testing
+
+What each layer of tests checks, and how to run it:
+
+| Tests | What they check | How to run |
+|---|---|---|
+| Unit tests | Parsers, request building, the scan engine | `go test ./...` (engine tests need `make bench-up`, otherwise they skip) |
+| End to end (`e2e/`) | The real `kr` binary against in-process servers with known behaviour: plain/echoing/soft 404s, single page app catch-alls, redirects, 405s, HTTPS, base paths. Every mode must report exactly the real routes (no false positives or negatives); every parameter type must produce a request a validating API accepts; every flag does what it says | part of `go test ./...`, no network needed |
+| Real dataset | Compiles Assetnote's `routes-small.json` (~2000 real APIs) and checks all ~36k generated requests are well formed | `KR_E2E_CORPUS=download go test -run TestCorpus ./e2e/` (weekly in CI) |
+| Fuzzing | Target parsing, length ranges, redirects, schema loading and conversion, `.kite` decoding | `go test -fuzz FuzzSchemaToRequests ./pkg/proute/` etc. (weekly in CI) |
+| Real applications | Scans Swagger Petstore (Java), VAmPI (Python), OWASP Juice Shop (Node, SPA) and go-httpbin (Go) and requires exactly their real routes | `docker compose -f realworld/docker-compose.yml up -d`, then `KR_E2E_REALWORLD=1 go test -run TestRealWorld ./e2e/` (weekly in CI) |
+| Race detector | All of the above with `-race`, including the `kr` binary | `KR_E2E_RACE=1 go test -race ./...` |
+| Coverage | Unit and e2e coverage merged | `make cover` |
+
+## Known limitations
+
+These are properties of how kiterunner tells real routes from wildcard responses, measured with the tests above:
+
+- **Soft 404 pages whose word count changes on every request** (e.g. random recommendations) can produce false
+  positives; ones that only vary in length (a request id) are handled.
+- **Rate limiting** (`429`) differs from the 404 baseline and is reported. Use `--fail-status-codes 429,...`.
+- **`--quarantine-threshold`** (default 10) stops scanning a host after that many consecutive hits, to protect
+  against wildcard hosts. On a host where many routes really exist, raise it or set it to 0.
+- **`-d` / `--preflight-depth`** takes baselines closer to the routes. A route ending in a path parameter
+  (`/users/{name}`) can then look like the random paths next to it and be missed.
+- A server that sends a broken response (e.g. a `Content-Length` larger than the body) is treated as a failed
+  request, as curl and other strict clients do.
 
 # Technical Implementation
 

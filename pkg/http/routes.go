@@ -1,36 +1,44 @@
 package http
 
+import "strings"
+
 // getDepth will return up to the N'th+1 slash in the path.
 // e.g. /foo/bar/baz depth 2 will return /foo/bar
 // If a prefix slash is not included, we will prepend the prefix slash,
 // e.g. foo/bar/baz depth 2 will return /foo/bar
 // If there is insufficient path elements, we will return the input element
+// getDepth returns the directory below which the route at path gets its wildcard baselines: the first depth
+// directories of the path, but never the route itself. Using the route itself (for routes with depth or fewer
+// segments) meant probing route+"/" as a baseline, which most frameworks answer like the route, so real routes
+// like /metrics or /api/Products were discarded as wildcards.
 func getDepth(path string, depth int64) (ret string) {
-	// if we wanted no depth, then the basepath is empty
-	if depth == 0 {
+	if depth <= 0 || len(path) == 0 {
 		return ""
 	}
-
-	// not sure how this is possible but sure
-	if len(path) == 0 {
-		return path
-	}
-
 	if path[0] != '/' {
 		path = "/" + path
 	}
-	var hits int64 = 0
-	for i, v := range path {
-		if v == '/' {
-			hits++
-		}
 
-		if hits == depth+1 {
-			return path[0:i]
-		}
+	// directories end at each slash after the first; the last segment is the route itself, not a directory
+	trimmed := strings.TrimRight(path, "/")
+	parents := int64(strings.Count(trimmed, "/") - 1)
+	if parents <= 0 {
+		return ""
+	}
+	if depth > parents {
+		depth = parents
 	}
 
-	return path
+	var hits int64 = 0
+	for i, v := range trimmed {
+		if v == '/' {
+			hits++
+			if hits == depth+1 {
+				return trimmed[0:i]
+			}
+		}
+	}
+	return trimmed
 }
 
 type RouteMap map[string][]*Route

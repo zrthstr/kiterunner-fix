@@ -53,6 +53,8 @@ func (e *Engine) Config() *Config {
 	return e.config
 }
 
+func isDocroot(base string) bool { return base == "" || base == "/" }
+
 // handleTarget will process the target provided. This will manage the number of concurrent requests
 // that can be sent to a particular host with a semaphore channel
 // this function processes preflight check asynchronously
@@ -65,8 +67,18 @@ func handleTarget(ctx context.Context, target *http.Target, reqChan chan *ReqMsg
 	c := target.HTTPClient(config.MaxConnPerHost, config.HTTP.Timeout)
 	preflightChecks := len(config.PreflightCheckRoutes)
 
+	// routes directly in the docroot share the docroot baseline, which is always taken. The docroot used to be
+	// probed a second time for them
+	docrootRoutes := append(append([]*http.Route{}, rm[""]...), rm["/"]...)
+	subpaths := 0
+	for base := range rm {
+		if !isDocroot(base) {
+			subpaths++
+		}
+	}
+
 	// we expect N routes for the number of requests + (M + 1) * baselines + 1 root request
-	totalExpectedRequests := rm.FlattenCount() + (len(config.PreflightCheckRoutes) * (len(rm) + 1))
+	totalExpectedRequests := rm.FlattenCount() + (len(config.PreflightCheckRoutes) * (subpaths + 1))
 	requestsSent := 0
 	defer func() {
 		log.Debug().
@@ -126,11 +138,14 @@ func handleTarget(ctx context.Context, target *http.Target, reqChan chan *ReqMsg
 				// context is cancelled drop everything and fuck off
 				close(subpathRouteChan)
 				return
-			case subpathRouteChan <- subpathRoutes{responses: subpathRespChan, routes: nil}:
+			case subpathRouteChan <- subpathRoutes{responses: subpathRespChan, routes: docrootRoutes}:
 			}
 		}
 
 		for base, routes := range rm {
+			if isDocroot(base) {
+				continue // scheduled with the docroot baseline above
+			}
 			subpathRespChan := acquireSubpathBaselineChan(preflightChecks)
 			for _, req := range config.PreflightCheckRoutes {
 				t := acquireReqMsg()
@@ -155,7 +170,7 @@ func handleTarget(ctx context.Context, target *http.Target, reqChan chan *ReqMsg
 			}
 		}
 	}()
-	expect := len(rm) + 1 // we expect N+1 baselines, since we do the docroot by default always
+	expect := subpaths + 1 // we expect N+1 baselines, since we do the docroot by default always
 
 	chunks := http.AcquireChunkedRoutes()
 	defer http.ReleaseChunkedRoutes(chunks)
