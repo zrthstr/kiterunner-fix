@@ -62,5 +62,8 @@ jobs:
       - name: Test
         run: go test -count=1 -timeout 5m ./...
 
+      # KR_E2E_RACE builds the kr binary used by the e2e tests with the race detector as well
       - name: Test (race detector)
-        run: go test -count=1 -race -timeout 10m ./...
+        env:
+          KR_E2E_RACE: "1"
+        run: go test -count=1 -race -timeout 15m ./...
