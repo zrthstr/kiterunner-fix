@@ -49,8 +49,14 @@ func TestWildcardResponseValidatorStatusCodeDistance(t *testing.T) {
 
 	// a 200 is nowhere near the 404 baseline, so matching word/line counts must not discard it
 	assert.NoError(t, v.Validate(resp(200), baseline, nil))
-	// a 403 with the same shape as the 404 baseline is the load balancer edge case and is discarded
-	assert.Equal(t, ErrWordCountMatch, v.Validate(resp(403), baseline, nil))
+	// a 403 that only shares the word/line count with the 404 baseline is a different page and is kept
+	assert.NoError(t, v.Validate(resp(403), baseline, nil))
+	// the load balancer case: the identical body with a nearby status is discarded on length
+	sameBody := resp(403)
+	sameBody.BodyLength = 9
+	assert.Equal(t, ErrLengthMatch, v.Validate(sameBody, baseline, nil))
+	// the same status with a matching word/line count (a soft 404 with a varying length) is discarded
+	assert.Equal(t, ErrWordCountMatch, v.Validate(resp(404), baseline, nil))
 	// a 5xx far above the baseline is also not compared
 	assert.NoError(t, v.Validate(resp(500), baseline, nil))
 }

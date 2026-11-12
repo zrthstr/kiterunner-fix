@@ -123,8 +123,12 @@ func (v *WildcardResponseValidator) Validate(r http.Response, wildcardResponses 
 					Msg("failed on scaled length match")
 				return ErrScaledLengthMatch
 			}
-			// TODO: benchmark whether this is an effective mechanism
-			if r.Words == wr.DefaultWordCount &&
+			// the word/line count match catches wildcard pages whose length varies (e.g. a random request id).
+			// It only applies to the exact same status code: a short one line page with the same word count is
+			// common (e.g. a 403 "Forbidden" next to a 404 "not found") and would otherwise be discarded. The
+			// load balancer case of an identical body with a nearby status is already caught by the length match.
+			if r.StatusCode == wr.DefaultStatusCode &&
+				r.Words == wr.DefaultWordCount &&
 				r.Lines == wr.DefaultLineCount {
 				log.Trace().
 					Int("words", r.Words).

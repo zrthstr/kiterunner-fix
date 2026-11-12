@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
@@ -273,6 +274,16 @@ routeloop:
 		}
 
 		req.Route = route
+
+		// --delay: wait between requests. Each connection to a host runs its own loop, so with
+		// MaxConnPerHost == 1 this spaces out every request to the host
+		if config.Delay > 0 {
+			select {
+			case <-ctx.Done():
+				break routeloop
+			case <-time.After(config.Delay):
+			}
+		}
 
 		j.t.HitIncr()
 		config.ProgressBar.Incr(1)
