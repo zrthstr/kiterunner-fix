@@ -65,9 +65,9 @@ are scanned
 
 usage: 
 kr scan <input> <flags>
-kr scan hosts.txt -A=apiroutes-210228:5000 
+kr scan hosts.txt -A=apiroutes-260227:5000
 kr scan domain.com -w wordlist.kite
-kr scan domains.txt -W rafter.txt -D=0 # this just uses the words as a normal wordlist, disables depth scanning
+kr brute domains.txt -w rafter.txt -d=0 # plain wordlist (not kite), depth scanning disabled
 
 `,
 	Args: cobra.ExactArgs(1),
@@ -158,5 +158,5 @@ func init() {
 
 	scanCmd.Flags().StringSliceVar(&filterAPIs, "filter-api", filterAPIs, "only scan apis matching this ksuid")
 
-	scanCmd.Flags().StringSliceVarP(&assetnoteWordlist, "assetnote-wordlist", "A", assetnoteWordlist, "use the wordlists from wordlist.assetnote.io. specify the type/name to use, e.g. apiroutes-210228. You can specify an additional maxlength to use only the first N values in the wordlist, e.g. apiroutes-210228;20000 will only use the first 20000 lines in that wordlist")
+	scanCmd.Flags().StringSliceVarP(&assetnoteWordlist, "assetnote-wordlist", "A", assetnoteWordlist, "use the wordlists from wordlist.assetnote.io. specify the type/name to use, e.g. apiroutes-260227 (see `kr wordlist list` for current names). You can specify an additional maxlength to use only the first N values in the wordlist, e.g. apiroutes-260227:20000 will only use the first 20000 lines in that wordlist")
 }

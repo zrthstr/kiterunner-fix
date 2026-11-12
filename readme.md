@@ -2,9 +2,20 @@
 
 ![](/hack/kiterunner.png)
 
-[![GoDoc](https://godoc.org/github.com/assetnote/kiterunner?status.svg)](https://godoc.org/github.com/assetnote/kiterunner)
-[![GitHub release](https://img.shields.io/github/release/assetnote/kiterunner.svg)](https://github.com/assetnote/kiterunner/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/assetnote/kiterunner)](https://goreportcard.com/report/github.com/assetnote/kiterunner)
+[![Go](https://github.com/zrthstr/kiterunner-fix/actions/workflows/go-build-test.yml/badge.svg)](https://github.com/zrthstr/kiterunner-fix/actions/workflows/go-build-test.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zrthstr/kiterunner-fix.svg)](https://pkg.go.dev/github.com/zrthstr/kiterunner-fix)
+
+> **This is a fork of [assetnote/kiterunner](https://github.com/assetnote/kiterunner) with bug fixes.**
+> Upstream is unmaintained. All credit for Kiterunner goes to Assetnote. Notable fixes in this fork:
+>
+> - Results were silently dropped: a 200 was compared against a 404 wildcard baseline, and baselines
+>   leaked between targets through a pooled job, so multi-host scans missed valid hits
+> - Scanning targets from stdin (`kr scan - ...` / `kr brute - ...`) panicked
+> - A deadlock in the scan engine, and data races found with the race detector
+> - `--timeout` was multiplied by 5 against unresponsive hosts (fasthttp retried timeouts)
+> - `--force-method` and `--config` were ignored; `brute` ignored its default `--preflight-depth 0`
+> - `kb compile` from stdin and `kb parse` dropped all parameters, headers and bodies
+> - Dirsearch mode (`-D`) requested the literal `%EXT%`; `kb replay <ksuid> <method> <route>` panicked
 
 # Introduction
 
@@ -50,14 +61,28 @@ Swagger files were collected from a number of datasources, including an internet
 
 # Installation
 
+## Installing with Go
+
+```bash
+go install github.com/zrthstr/kiterunner-fix/cmd/kiterunner@latest
+
+# the binary is named after its directory; the docs below call it kr
+ln -s "$(go env GOPATH)/bin/kiterunner" /usr/local/bin/kr
+```
+
 ## Downloading a release
 
-You can download a pre-built copy from https://github.com/assetnote/kiterunner/releases.
+Pre-built copies of the original are at https://github.com/assetnote/kiterunner/releases.
+Note that these do not contain the fixes from this fork.
 
 ## Building from source
 ```bash
 # build the binary
 make build
+
+# run the tests. the engine tests need the bundled test server, otherwise they are skipped
+make bench-up &   # serves ports 14000-15001
+make test
 
 # symlink your binary
 ln -s $(pwd)/dist/kr /usr/local/bin/kr
@@ -98,13 +123,13 @@ kr [scan|brute] <input> [flags]
 
 ```
 # Just have a list of hosts and no wordlist
-kr scan hosts.txt -A=apiroutes-210328:20000 -x 5 -j 100 --fail-status-codes 400,401,404,403,501,502,426,411
+kr scan hosts.txt -A=apiroutes-260227:20000 -x 5 -j 100 --fail-status-codes 400,401,404,403,501,502,426,411
 
 # You have your own wordlist but you want assetnote wordlists too
-kr scan target.com -w routes.kite -A=apiroutes-210328:20000 -x 20 -j 1 --fail-status-codes 400,401,404,403,501,502,426,411
+kr scan target.com -w routes.kite -A=apiroutes-260227:20000 -x 20 -j 1 --fail-status-codes 400,401,404,403,501,502,426,411
 
 # Bruteforce like normal but with the first 20000 words
-kr brute https://target.com/subapp/ -A=aspx-210328:20000 -x 20 -j 1
+kr brute https://target.com/subapp/ -A=aspx-260227:20000 -x 20 -j 1
 
 # Use a dirsearch style wordlist with %EXT%
 kr brute https://target.com/subapp/ -w dirsearch.txt -x 20 -j 1 -exml,asp,aspx,ashx -D
@@ -119,7 +144,7 @@ Usage:
   kite scan [flags]
 
 Flags:
-  -A, --assetnote-wordlist strings    use the wordlists from wordlist.assetnote.io. specify the type/name to use, e.g. apiroutes-210228. You can specify an additional maxlength to use only the first N values in the wordlist, e.g. apiroutes-210228;20000 will only use the first 20000 lines in that wordlist
+  -A, --assetnote-wordlist strings    use the wordlists from wordlist.assetnote.io. specify the type/name to use, e.g. apiroutes-260227. You can specify an additional maxlength to use only the first N values in the wordlist, e.g. apiroutes-260227:20000 will only use the first 20000 lines in that wordlist
       --blacklist-domain strings      domains that are blacklisted for redirects. We will not follow redirects to these domains
       --delay duration                delay to place inbetween requests to a single host
       --disable-precheck              whether to skip host discovery
@@ -207,19 +232,19 @@ the rules we apply are:
 When you have a single target
 ```bash
 # single target
-kr scan https://target.com:8443/ -w routes.kite -A=apiroutes-210228:20000 -x 10 --ignore-length=34
+kr scan https://target.com:8443/ -w routes.kite -A=apiroutes-260227:20000 -x 10 --ignore-length=34
 
 # single target, but you want to try http and https
-kr scan target.com -w routes.kite -A=apiroutes-210228:20000 -x 10 --ignore-length=34
+kr scan target.com -w routes.kite -A=apiroutes-260227:20000 -x 10 --ignore-length=34
 
 # a list of targets
-kr scan targets.txt -w routes.kite -A=apiroutes-210228:20000 -x 10 --ignore-length=34
+kr scan targets.txt -w routes.kite -A=apiroutes-260227:20000 -x 10 --ignore-length=34
 ```
 
 ## Vanilla Bruteforcing 
 
 ```bash
-kr brute https://target.com -A=raft-large-words -A=apiroutes-210228:20000 -x 10 -d=0 --ignore-length=34 -ejson,txt
+kr brute https://target.com -A=raft-large-words -A=apiroutes-260227:20000 -x 10 -d=0 --ignore-length=34 -ejson,txt
 ```
 
 ## Dirsearch Bruteforcing
@@ -260,7 +285,7 @@ Naturally, increasing the depth will increase the accuracy of your scans, howeve
 
 We provide inbuilt downloading and caching of wordlists from assetnote.io. You can use these with the `-A` flag which receives a comma delimited list of aliases, or fullnames.
 
-You can get a full list of all the Assetnote wordlists with `kr wordlist list`. 
+You can get a full list of all the Assetnote wordlists with `kr wordlist list`. The dated aliases (e.g. `apiroutes-260227`) change as Assetnote publishes new lists, so check `kr wordlist list` for the current names; the table below is example output.
 
 The wordlists when used, are cached in `~/.cache/kiterunner/wordlists`. When used, these are compiled from `.txt` -> `.kite` 
 
@@ -292,8 +317,8 @@ The wordlists when used, are cached in `~/.cache/kiterunner/wordlists`. When use
 
 **Usage**
 ```
-kr scan targets.txt -A=apiroutes-210228 -x 10 --ignore-length=34
-kr brute targets.txt -A=aspx-210228 -x 10 --ignore-length=34 -easp,aspx
+kr scan targets.txt -A=apiroutes-260227 -x 10 --ignore-length=34
+kr brute targets.txt -A=aspx-260227 -x 10 --ignore-length=34 -easp,aspx
 ```
 
 ### Head Syntax
@@ -303,10 +328,10 @@ When using assetnote provided wordlists, you may not want to use the entire word
 **Usage**
 ```
 # this will use the first 20000 lines in the api routes wordlist
-kr scan targets.txt -A=apiroutes-210228:20000 -x 10 --ignore-length=34
+kr scan targets.txt -A=apiroutes-260227:20000 -x 10 --ignore-length=34
 
 # this will use the first 10 lines in the aspx wordlist
-kr brute targets.txt -A=aspx-210228:10 -x 10 --ignore-length=34 -easp,aspx
+kr brute targets.txt -A=aspx-260227:10 -x 10 --ignore-length=34 -easp,aspx
 ```
 
 ## Concurrency Settings/Going Fast
