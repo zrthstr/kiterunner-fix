@@ -1,0 +1,36 @@
+name: Corpus
+
+# compiles Assetnote's real routes dataset (~2000 APIs from real swagger files) and checks every request kr
+# builds from it. Needs a 15MB download, so it runs weekly and on demand instead of on every push
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  corpus:
+    name: Real dataset
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # third party actions are pinned to full commit SHAs, tags are mutable. dependabot keeps them updated
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Corpus test
+        env:
+          KR_E2E_CORPUS: download
+        run: go test -count=1 -run TestCorpus -v -timeout 20m ./e2e/

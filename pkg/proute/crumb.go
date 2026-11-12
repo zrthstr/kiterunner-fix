@@ -278,13 +278,32 @@ func MarshalXMLCrumb(c Crumb, opts ...CrumbOption) string {
 	if !co.IsChild {
 		doc.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
 	}
-	root := doc.CreateElement(c.Key())
+	root := doc.CreateElement(xmlName(c.Key()))
 	root.SetText(c.Value(append(opts, CrumbOptIsChild(true))...))
 	ret, err := doc.WriteToString()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to marshal xml")
 	}
 	return ret
+}
+
+// xmlName turns a schema property name into a valid XML element name. Names with spaces like "Request body"
+// produced XML that no parser accepts
+func xmlName(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		ok := c == '_' || c == ':' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c >= 0x80
+		if i > 0 {
+			ok = ok || c == '-' || c == '.' || (c >= '0' && c <= '9')
+		}
+		if !ok {
+			b[i] = '_'
+		}
+	}
+	if len(b) == 0 {
+		return "item"
+	}
+	return string(b)
 }
 
 type XMLer interface {
@@ -323,7 +342,7 @@ func XMLAddChildCrumb(xml XMLer, c Crumb, nameOverride string, opts ...CrumbOpti
 		if nameOverride != "" {
 			key = nameOverride
 		}
-		child := xml.CreateElement(key)
+		child := xml.CreateElement(xmlName(key))
 		child.SetText(c.Value(append(opts, CrumbOptIsChild(true))...))
 	}
 	return nil
@@ -339,7 +358,7 @@ func (o ObjectCrumb) Value(opts ...CrumbOption) string {
 		if !co.IsChild {
 			doc.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
 		}
-		root := doc.CreateElement(o.Name)
+		root := doc.CreateElement(xmlName(o.Name))
 
 		for _, v := range o.Elements {
 			err := XMLAddChildCrumb(root, v, "", opts...)
@@ -438,7 +457,7 @@ func (a ArrayCrumb) Value(opts ...CrumbOption) string {
 		if !co.IsChild {
 			doc.CreateProcInst("xml", `version="1.0" encoding="UTF-8"`)
 		}
-		root := doc.CreateElement(a.Name)
+		root := doc.CreateElement(xmlName(a.Name))
 		// we need to have a name for this child because XML is dumb
 		// and not all swagger specs will specify this. so we'll use the parent as the example
 		// might be wrong per the spec, but its something that should parse the xml parser

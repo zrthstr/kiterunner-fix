@@ -139,7 +139,9 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 					Context: fmt.Sprintf("%s.AdditionalProperties", name),
 				})
 			}
-			ret.Elements = append(ret.Elements, c)
+			if c != nil {
+				ret.Elements = append(ret.Elements, c)
+			}
 		}
 
 		// iterate properties in sorted order so the generated crumbs (and request bodies) are deterministic
@@ -153,23 +155,29 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 			vv := props[k]
 			c, err := objectCrumbFromSchema(k, &vv)
 			if err != nil {
-				return ret, &errors.ParserError{
+				// keep going: a problem with one property (e.g. an unknown string format) used to drop the
+				// rest of the object, sending an incomplete body
+				merr = multierror.Append(merr, &errors.ParserError{
 					Err:     fmt.Errorf("failed to parse property: %w", err),
 					Context: fmt.Sprintf("%s.properties.%s", name, k),
-				}
+				})
 			}
-			ret.Elements = append(ret.Elements, c)
+			if c != nil {
+				ret.Elements = append(ret.Elements, c)
+			}
 		}
 
 		for _, vv := range v.GetAllOf() {
 			c, err := objectCrumbFromSchema("", &vv)
 			if err != nil {
-				return ret, &errors.ParserError{
+				merr = multierror.Append(merr, &errors.ParserError{
 					Err:     fmt.Errorf("failed to parse allof: %w", err),
 					Context: fmt.Sprintf("%s.allOf", name),
-				}
+				})
 			}
-			ret.Elements = append(ret.Elements, c)
+			if c != nil {
+				ret.Elements = append(ret.Elements, c)
+			}
 		}
 
 		// temporarily disable because its very noisy and very likely
@@ -181,7 +189,7 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 		}
 
 		// we should have a complete or default object at this point
-		return ret, nil
+		return ret, merr.ErrorOrNil()
 	case "array":
 		ret := ArrayCrumb{
 			Name:    name,
@@ -240,7 +248,7 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 			})
 		}
 		return c, merr.ErrorOrNil()
-	case "int", "uint", "integer", "number", "numeric", "long", "int32", "int64", "uint32", "uint64":
+	case "int", "uint", "integer", "number", "numeric", "long", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64":
 		// numbers are scuffed, we will fallback on format if there is any.
 		switch v.GetFormat() {
 		case "float":
@@ -294,23 +302,31 @@ func objectCrumbFromSchema(name string, v kitebuilder.Typer) (Crumb, error) {
 		if v.GetPattern() != "" { // if there's a pattern its regex
 			ret := RegexStringCrumb{Name: name, Regex: v.GetPattern()}
 			if err := ret.Validate(); err != nil {
+				// e.g. lookaheads, which go's regexp does not support: a random string is better than nothing
 				merr = multierror.Append(merr, &errors.ParserError{
 					Context: fmt.Sprintf("%s.Pattern", name),
 					Err:     fmt.Errorf("failed to compile pattern: %w", err),
 				})
+				return RandomStringCrumb{Name: name}, merr.ErrorOrNil()
 			}
-			return ret, merr
+			return ret, nil
 		} else if v.GetDefault() != nil { // if there's a default, lets just take that and stop thinking
 			if vv, ok := v.GetDefault().(string); ok {
 				return StaticCrumb{K: name, V: vv}, nil
 			}
 
-			// we have a non string default variable? not sure how this is possible
+			// a number or boolean default on a string type is common in real schemas: send it as text
+			switch d := v.GetDefault().(type) {
+			case float64:
+				return StaticCrumb{K: name, V: strconv.FormatFloat(d, 'f', -1, 64)}, nil
+			case bool:
+				return StaticCrumb{K: name, V: strconv.FormatBool(d)}, nil
+			}
 			merr = multierror.Append(merr, &errors.ParserError{
 				Context: fmt.Sprintf("%s.Default", name),
 				Err:     fmt.Errorf("unexpected default type: %v", v.GetDefault()),
 			})
-			return RandomStringCrumb{Name: name}, merr
+			return RandomStringCrumb{Name: name}, merr.ErrorOrNil()
 		} else {
 			f := strings.TrimSpace(strings.ToLower(v.GetFormat()))
 			switch f {
@@ -378,7 +394,7 @@ func FromKitebuilderAPIs(src []kitebuilder.API) ([]API, error) {
 	for _, v := range src {
 		tmp, err := FromKitebuilderAPI(v)
 		if err != nil {
-			multierror.Append(merr, err)
+			merr = multierror.Append(merr, err)
 		}
 		ret = append(ret, tmp)
 	}

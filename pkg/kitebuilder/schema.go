@@ -1,6 +1,7 @@
 package kitebuilder
 
 import (
+	"encoding/json"
 	"reflect"
 )
 
@@ -191,4 +192,49 @@ func (s Schema) GetEnum() []interface{}           { return s.Enum }
 func (s Schema) IsZero() bool {
 	s2 := Schema{}
 	return reflect.DeepEqual(&s2, s)
+}
+
+// typeFromJSON reads a JSON Schema type, which is a string or a list like ["string", "null"]. For a list the
+// first type other than null is used
+func typeFromJSON(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		return single
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err == nil {
+		for _, t := range list {
+			if t != "null" {
+				return t
+			}
+		}
+	}
+	return ""
+}
+
+// UnmarshalJSON accepts additionalProperties as a schema or as a boolean, and type as a string or a list. JSON Schema allows both, and a
+// boolean failed to decode, which dropped the whole parameter. A boolean carries no schema, so it is ignored
+func (s *Schema) UnmarshalJSON(b []byte) error {
+	type plain Schema
+	aux := struct {
+		*plain
+		AdditionalProperties json.RawMessage `json:"additionalProperties,omitempty"`
+		Type                 json.RawMessage `json:"type,omitempty"`
+	}{plain: (*plain)(s)}
+	if err := json.Unmarshal(b, &aux); err != nil {
+		return err
+	}
+	s.Type = typeFromJSON(aux.Type)
+	s.AdditionalProperties = nil
+	if len(aux.AdditionalProperties) > 0 && aux.AdditionalProperties[0] == '{' {
+		var ap Schema
+		if err := json.Unmarshal(aux.AdditionalProperties, &ap); err != nil {
+			return err
+		}
+		s.AdditionalProperties = &ap
+	}
+	return nil
 }

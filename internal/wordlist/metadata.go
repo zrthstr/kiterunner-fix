@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zrthstr/kiterunner-fix/internal/kitebuilder"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
 	"github.com/zrthstr/kiterunner-fix/pkg/proute"
 )
@@ -64,14 +66,36 @@ func get(url string) (*http.Response, error) {
 	return resp, nil
 }
 
+const schemaArchiveSuffix = ".json.tar.gz"
+
+// preferredSource picks, per alias, which of assetnote's files kr uses when both a compiled .kite and the json
+// schema it was built from are published:
+//   - routes-small: the official routes-small.kite contains no parameters at all (no headers, query, bodies or
+//     content types, it was built with the bug that dropped them), so kr compiles routes-small.json itself
+//   - routes-large: the official kite has its parameters. compiling the 2.6GB json locally takes ~3GB of memory,
+//     so the official file is used; `kr kb compile routes-large.json` builds it with kr's current generator
+var preferredSource = map[string]string{
+	"routes-small": "routes-small" + schemaArchiveSuffix,
+	"routes-large": "routes-large" + kiteArchiveSuffix,
+}
+
 // IsKite reports whether the wordlist is a compiled kiterunner wordlist (a .kite inside a .tar.gz)
 func (w WordlistMetadata) IsKite() bool {
 	return strings.HasSuffix(w.Filename, kiteArchiveSuffix)
 }
 
-// usable reports whether kr can use the wordlist. kiterunner.json also lists the raw swagger dataset and the
-// json sources of the kite files, which are inputs for building wordlists rather than wordlists
+// IsSchema reports whether the wordlist is a kitebuilder json schema (a .json inside a .tar.gz), which kr
+// compiles to a .kite on first use
+func (w WordlistMetadata) IsSchema() bool {
+	return strings.HasSuffix(w.Filename, schemaArchiveSuffix)
+}
+
+// usable reports whether kr can use the wordlist. kiterunner.json also lists the raw swagger dataset, which is
+// an input for building wordlists rather than a wordlist
 func (w WordlistMetadata) usable() bool {
+	if want, ok := preferredSource[nameConvert(w.Filename)]; ok {
+		return w.Filename == want
+	}
 	return w.IsKite() || strings.HasSuffix(w.Filename, ".txt")
 }
 
@@ -129,6 +153,11 @@ func (w WordlistMetadata) LocalKiteFilename() (string, error) {
 	if w.IsKite() {
 		// routes-small.kite.tar.gz is unpacked to routes-small.kite
 		fn = strings.TrimSuffix(w.Filename, ".tar.gz")
+	}
+	if w.IsSchema() {
+		// routes-small.json.tar.gz is compiled to routes-small.compiled.kite. A different name than the official
+		// kite unpacks to, so an existing cache never serves the official file for it
+		fn = strings.TrimSuffix(w.Filename, schemaArchiveSuffix) + ".compiled.kite"
 	}
 	outfile := path.Join(dir, fn)
 	return outfile, nil
@@ -200,6 +229,41 @@ func writeAtomic(dst string, r io.Reader) error {
 	return os.Rename(tmp.Name(), dst)
 }
 
+// compileSchemaArchive compiles the kitebuilder .json inside a .json.tar.gz archive to dst
+func compileSchemaArchive(archive, dst string) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("not a gzip archive: %w", err)
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return fmt.Errorf("no .json file found in %s", filepath.Base(archive))
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read archive: %w", err)
+		}
+		// skip macOS metadata entries like ._routes-small.json
+		if hdr.Typeflag != tar.TypeReg || !strings.HasSuffix(hdr.Name, ".json") || strings.HasPrefix(filepath.Base(hdr.Name), "._") {
+			continue
+		}
+		tmp := dst + ".compiling.kite"
+		defer os.Remove(tmp)
+		if err := kitebuilder.Compile(context.Background(), tr, tmp); err != nil {
+			return err
+		}
+		return os.Rename(tmp, dst)
+	}
+}
+
 // extractKite unpacks the single .kite file from a kiterunner .kite.tar.gz archive to dst
 func extractKite(archive, dst string) error {
 	f, err := os.Open(archive)
@@ -225,7 +289,8 @@ func extractKite(archive, dst string) error {
 		}
 		// only a regular .kite file, written to dst: entry names are never used as paths, so a crafted
 		// archive can't write outside of the cache directory
-		if hdr.Typeflag != tar.TypeReg || !strings.HasSuffix(hdr.Name, ".kite") {
+		// skip macOS metadata entries like ._routes-large.kite, which assetnote's archives contain
+		if hdr.Typeflag != tar.TypeReg || !strings.HasSuffix(hdr.Name, ".kite") || strings.HasPrefix(filepath.Base(hdr.Name), "._") {
 			continue
 		}
 		return writeAtomic(dst, tr)
@@ -245,6 +310,26 @@ func (w WordlistMetadata) APIS() (ret proute.APIS, err error) {
 	ret, err = proute.DecodeAPIProtoFile(localkite)
 	if err == nil {
 		log.Debug().Str("wordlist", w.Filename).Str("local", localkite).Msg("loaded compiled kite from cache")
+		return ret, nil
+	}
+
+	if w.IsSchema() {
+		// a json schema: download the archive and compile the json from it, streamed straight from the archive
+		if err := w.Cache(); err != nil {
+			return ret, fmt.Errorf("failed to cache file: %w", err)
+		}
+		archive, err := w.LocalFilename()
+		if err != nil {
+			return ret, fmt.Errorf("failed to get local filename: %w", err)
+		}
+		log.Info().Str("wordlist", w.Shortname).Msg("compiling the wordlist, this only happens once")
+		if err := compileSchemaArchive(archive, localkite); err != nil {
+			return ret, fmt.Errorf("failed to compile %s: %w", w.Filename, err)
+		}
+		ret, err = proute.DecodeAPIProtoFile(localkite)
+		if err != nil {
+			return ret, fmt.Errorf("failed to decode %s: %w", localkite, err)
+		}
 		return ret, nil
 	}
 
@@ -301,7 +386,7 @@ func (w WordlistMetadata) APIS() (ret proute.APIS, err error) {
 
 // words will attempt to retrieve the words from the cache. If it fails, it will
 func (w WordlistMetadata) Words() ([]string, error) {
-	if w.IsKite() {
+	if w.IsKite() || w.IsSchema() {
 		return nil, fmt.Errorf("%s is a kite wordlist, use it with `kr scan -A %s`", w.Shortname, w.Shortname)
 	}
 	localfile, err := w.LocalFilename()

@@ -3,6 +3,7 @@ package proute
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/url"
 	"strings"
 	"unicode"
@@ -155,9 +156,14 @@ func EncodingFor(ct ContentType) ContentType {
 func PickContentType(consumes []ContentType) ContentType {
 	for _, c := range consumes {
 		c = ContentType(strings.TrimSpace(string(c)))
-		if c != "" && !strings.Contains(string(c), "*") {
-			return c
+		if c == "" || strings.Contains(string(c), "*") {
+			continue
 		}
+		// swagger files contain broken values like `multipart/related; boundary={messageBoundary},`
+		if _, _, err := mime.ParseMediaType(string(c)); err != nil {
+			continue
+		}
+		return c
 	}
 	return ContentTypeFormEncoded
 }

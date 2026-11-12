@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
@@ -57,6 +58,16 @@ func GetLocalDirListing() ([]WordlistMetadata, error) {
 
 	ret := make([]WordlistMetadata, 0)
 	for _, v := range files {
+		name := v.Name()
+		// only wordlists: .kite files in the cache are compiled or unpacked from them, and partial downloads
+		// are temporary. Archives that are not the preferred source for their alias are left over from older
+		// versions (the official routes-small.kite has no parameters)
+		if strings.HasSuffix(name, ".kite") || strings.Contains(name, ".download-") || strings.Contains(name, ".compiling") {
+			continue
+		}
+		if want, ok := preferredSource[nameConvert(name)]; ok && name != want {
+			continue
+		}
 		r := WordlistMetadata{
 			Shortname: nameConvert(v.Name()),
 			Filename:  v.Name(),

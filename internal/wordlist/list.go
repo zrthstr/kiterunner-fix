@@ -144,6 +144,9 @@ func nameConvert(in string) string {
 	if strings.HasSuffix(in, kiteArchiveSuffix) {
 		return strings.TrimSuffix(in, kiteArchiveSuffix)
 	}
+	if strings.HasSuffix(in, schemaArchiveSuffix) {
+		return strings.TrimSuffix(in, schemaArchiveSuffix)
+	}
 	// remove extension
 	in = strings.TrimSuffix(in, filepath.Ext(in))
 

@@ -79,68 +79,83 @@ func SlowLoadJSONBytes(buf []byte) ([]API, error) {
 	}
 
 	for _, v := range all {
-		// encode json for debugging
-		bv, err := json.Marshal(v)
-		if err != nil {
-			return ret, fmt.Errorf("failed to encode object: %w", err)
-		}
-
-		switch v.(type) {
-		case []interface{}:
-			// this is a nested slice
-			for _, v := range v.([]interface{}) {
-				// encode json for debugging
-				bv, err := json.Marshal(v)
-				if err != nil {
-					log.Trace().Err(err).Msg("failed to encode object")
-				}
-
-				switch v.(type) {
-				case map[string]interface{}:
-					// we have reached the API object
-					a, err := unmarshalToAPI(v.(map[string]interface{}))
-					if err != nil {
-						merr = multierror.Append(merr, &errors2.ParserError{
-							ID:      "root",
-							RawJSON: bv,
-							Err:     fmt.Errorf("failed to unmarhsal api: %w", err),
-							Context: "root.[].[].v",
-						})
-					}
-					ret = append(ret, a)
-				default:
-					got := reflect.TypeOf(v).Kind()
-					merr = multierror.Append(merr, &errors2.ParserError{
-						ID:      "root",
-						RawJSON: bv,
-						Err:     fmt.Errorf("unexpected type: %s", got),
-						Context: "root.[].[].v",
-					})
-				}
-			}
-		case map[string]interface{}:
-			// we have reached the API object
-			a, err := unmarshalToAPI(v.(map[string]interface{}))
-			if err != nil {
-				merr = multierror.Append(merr, &errors2.ParserError{
-					ID:      "root",
-					RawJSON: bv,
-					Err:     fmt.Errorf("failed to unmarshal api: %w", err),
-					Context: "root.[].v",
-				})
-			}
-			ret = append(ret, a)
-		default:
-			got := reflect.TypeOf(v).Kind()
-			merr = multierror.Append(merr, &errors2.ParserError{
-				ID:      "root",
-				RawJSON: bv,
-				Err:     fmt.Errorf("unexpected type: %s", got),
-				Context: "root.[].v",
-			})
-		}
+		loadElement(v, func(a API) error { ret = append(ret, a); return nil }, merr)
 	}
 	return ret, merr.ErrorOrNil()
+}
+
+// StreamJSON decodes a kitebuilder schema (a json array of APIs, optionally nested one level) one API at a
+// time and calls fn for each, so the whole file never has to be held in memory. SlowLoadJSONBytes needed
+// over 10GB for assetnote's 2.6GB routes-large.json. Errors for individual APIs are collected and returned
+// as a multierror after the whole input has been read; an error from fn stops the stream.
+func StreamJSON(r io.Reader, fn func(API) error) error {
+	merr := &multierror.Error{}
+	dec := json.NewDecoder(r)
+	tok, err := dec.Token()
+	if err != nil {
+		return fmt.Errorf("failed to read json: %w", err)
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '[' {
+		return fmt.Errorf("failed to unmarshal json: expected an array of apis, got %v", tok)
+	}
+	for dec.More() {
+		var v interface{}
+		if err := dec.Decode(&v); err != nil {
+			return fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+		if err := loadElement(v, fn, merr); err != nil {
+			return err
+		}
+	}
+	if _, err := dec.Token(); err != nil {
+		return fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+	return merr.ErrorOrNil()
+}
+
+// loadElement converts one element of the top level array (an API object, or an array of them) and passes the
+// APIs to emit. Problems with the element are appended to merr; only an error from emit is returned
+func loadElement(v interface{}, emit func(API) error, merr *multierror.Error) error {
+	// the raw json is only for error messages, so only build it when there is an error
+	raw := func(v interface{}) []byte {
+		bv, err := json.Marshal(v)
+		if err != nil {
+			log.Trace().Err(err).Msg("failed to encode object")
+		}
+		return bv
+	}
+	load := func(v interface{}, context string) error {
+		obj, ok := v.(map[string]interface{})
+		if !ok {
+			*merr = *multierror.Append(merr, &errors2.ParserError{
+				ID:      "root",
+				RawJSON: raw(v),
+				Err:     fmt.Errorf("unexpected type: %s", reflect.TypeOf(v)),
+				Context: context,
+			})
+			return nil
+		}
+		a, err := unmarshalToAPI(obj)
+		if err != nil {
+			*merr = *multierror.Append(merr, &errors2.ParserError{
+				ID:      "root",
+				RawJSON: raw(v),
+				Err:     fmt.Errorf("failed to unmarshal api: %w", err),
+				Context: context,
+			})
+		}
+		return emit(a)
+	}
+
+	if nested, ok := v.([]interface{}); ok {
+		for _, vv := range nested {
+			if err := load(vv, "root.[].[].v"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return load(v, "root.[].v")
 }
 
 func unmarshalToAPI(v map[string]interface{}) (API, error) {

@@ -66,29 +66,39 @@ func Compile(ctx context.Context, r io.Reader, outputFile string, opts ...ScanOp
 	// add the .kite extension if it doesnt exist
 	outputFile = fixOutputFilename(outputFile)
 
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+	// stream the schema one api at a time and keep only the converted routes, the raw json of a large
+	// dataset does not fit in memory
+	var (
+		merr       *multierror.Error
+		apis       []proute.API
+		withIssues int
+	)
+	err := kitebuilder.StreamJSON(r, func(api kitebuilder.API) error {
+		a, err := proute.FromKitebuilderAPI(api)
+		if errors.As(err, &merr) {
+			// problems are per parameter (unknown formats, unsupported regexes, ...); the rest of the api is
+			// still compiled. details at debug level, a summary at the end
+			withIssues++
+			log.Debug().Str("id", api.ID).Msg("problems while parsing api")
+			for _, v := range merr.Errors {
+				errors2.PrintError(v, 0)
+			}
+		} else if err != nil {
+			return fmt.Errorf("failed to parse api %s: %w", api.ID, err)
+		}
+		apis = append(apis, a)
+		return nil
+	})
+	if withIssues > 0 {
+		log.Warn().Int("apis", len(apis)).Int("with-problems", withIssues).
+			Msg("some parameters could not be fully parsed and use generic values (run with -v debug for details)")
 	}
-
-	var merr *multierror.Error
-	api, err := kitebuilder.SlowLoadJSONBytes(data)
 	if errors.As(err, &merr) {
 		for _, v := range merr.Errors {
 			errors2.PrintError(v, 0)
 		}
 	} else if err != nil {
 		return fmt.Errorf("failed to parse json: %w", err)
-	}
-
-	apis, err := proute.FromKitebuilderAPIs(api)
-	if errors.As(err, &merr) {
-		log.Error().Msg("errors while parsing apis")
-		for _, v := range merr.Errors {
-			errors2.PrintError(v, 0)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to parse api: %w", err)
 	}
 
 	if err := proute.APIS(apis).EncodeProtoFile(outputFile); err != nil {

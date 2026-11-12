@@ -1,6 +1,7 @@
 package proute
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -61,12 +62,18 @@ func (r Route) ToKiterunner(extraHeaders ...KV) (*http.Route, error) {
 		Path:   []byte(r.path),
 		Method: http.Method(method),
 	}
+	// header names that are not valid HTTP tokens (e.g. an unrendered "${auth.header}" from a swagger file)
+	// make servers reject the whole request with a 400, which then looks like a finding
 	for _, h := range r.Headers(true) {
-		ret.Headers = append(ret.Headers, http.Header{Key: h.Key, Value: h.Value})
+		if validHeaderName(h.Key) {
+			ret.Headers = append(ret.Headers, http.Header{Key: h.Key, Value: h.Value})
+		}
 	}
 
 	for _, h := range extraHeaders {
-		ret.Headers = append(ret.Headers, http.Header{Key: h.Key, Value: h.Value})
+		if validHeaderName(h.Key) {
+			ret.Headers = append(ret.Headers, http.Header{Key: h.Key, Value: h.Value})
+		}
 	}
 
 	ct := PickContentType(r.ContentType)
@@ -82,13 +89,46 @@ func (r Route) ToKiterunner(extraHeaders ...KV) (*http.Route, error) {
 		ret.Headers = append(ret.Headers, http.Header{Key: "Content-Type", Value: string(ct)})
 	}
 
-	tmp, err := r.Path(false)
+	path, err := r.Path(false)
 	if err != nil {
 		return ret, err
 	}
-	ret.Path = []byte(tmp)
+	query, err := r.Query(false)
 
-	tmp, err = r.Query(false)
-	ret.Query = []byte(tmp)
+	// some route templates carry a query string ("/operators?page=1&size=3"). it belongs in the query, the
+	// "?" was percent encoded into the path before
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		templateQuery := path[i+1:]
+		path = path[:i]
+		if v, perr := url.ParseQuery(templateQuery); perr == nil {
+			templateQuery = v.Encode()
+		} else {
+			templateQuery = url.QueryEscape(templateQuery)
+		}
+		switch {
+		case query == "":
+			query = templateQuery
+		case templateQuery != "":
+			query = templateQuery + "&" + query
+		}
+	}
+	ret.Path = []byte(path)
+	ret.Query = []byte(query)
 	return ret, err
+}
+
+// validHeaderName reports whether s is a valid HTTP header field name (an RFC 7230 token)
+func validHeaderName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range []byte(s) {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case strings.IndexByte("!#$%&'*+-.^_`|~", c) >= 0:
+		default:
+			return false
+		}
+	}
+	return true
 }

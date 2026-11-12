@@ -19,6 +19,7 @@ import (
 // exchange is a request received by a target
 type exchange struct {
 	Method, Path, Query string
+	RequestURI          string // as sent, before decoding
 	Header              http.Header
 	Body                string
 }
@@ -52,7 +53,7 @@ func newTarget(t *testing.T, useTLS bool, h http.HandlerFunc) *target {
 	record := func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		tg.mu.Lock()
-		tg.reqs = append(tg.reqs, exchange{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, Header: r.Header.Clone(), Body: string(body)})
+		tg.reqs = append(tg.reqs, exchange{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery, RequestURI: r.RequestURI, Header: r.Header.Clone(), Body: string(body)})
 		tg.mu.Unlock()
 		r.Body = io.NopCloser(strings.NewReader(string(body)))
 		h(w, r)
