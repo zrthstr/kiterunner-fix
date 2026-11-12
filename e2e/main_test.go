@@ -42,6 +42,11 @@ func TestMain(m *testing.M) {
 	if os.Getenv("KR_E2E_RACE") == "1" {
 		args = append(args, "-race")
 	}
+	// KR_E2E_COVERDIR=<dir> builds kr with coverage instrumentation and every kr run writes its coverage there.
+	// Merge with `go tool covdata textfmt -i=<dir> -o=cover.out`
+	if dir := os.Getenv("KR_E2E_COVERDIR"); dir != "" {
+		args = append(args, "-cover", "-coverpkg=github.com/zrthstr/kiterunner-fix/...")
+	}
 	args = append(args, "../cmd/kiterunner")
 	if out, err := exec.Command("go", args...).CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build kr: %v\n%s", err, out)
@@ -73,6 +78,9 @@ func krEnv(t *testing.T, env []string, stdin string, args ...string) run {
 
 	cmd := exec.CommandContext(ctx, krBin, args...)
 	cmd.Env = append(append(os.Environ(), "HOME="+krHome, "NO_COLOR=1", "XDG_CACHE_HOME="), env...)
+	if dir := os.Getenv("KR_E2E_COVERDIR"); dir != "" {
+		cmd.Env = append(cmd.Env, "GOCOVERDIR="+dir)
+	}
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

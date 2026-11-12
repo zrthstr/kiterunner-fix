@@ -17,6 +17,17 @@ BUILDFLAGS="$(SHORTBUILDFLAGS) -X 'github.com/zrthstr/kiterunner-fix/cmd/kiterun
 test:
 	$(GOTEST) ./...
 
+# coverage of the unit tests and of the kr binary as exercised by the e2e tests, merged into cover.out
+cover:
+	rm -rf .cover && mkdir -p .cover/e2e
+	KR_E2E_COVERDIR=$(CURDIR)/.cover/e2e $(GOTEST) -count=1 ./e2e/
+	$(GOCMD) tool covdata textfmt -i=.cover/e2e -o=.cover/e2e.out
+	$(GOTEST) -count=1 -coverpkg=./... -coverprofile=.cover/unit.out ./...
+	# generated protobuf code and the benchmark helpers are left out so the total reflects hand written code
+	{ echo "mode: set"; tail -q -n +2 .cover/unit.out .cover/e2e.out | grep -v -e '\.pb\.go:' -e '/cmd/testServer/' -e '/benchmark/'; } > cover.out
+	$(GOCMD) tool cover -func=cover.out | tail -1
+	@echo "html report: go tool cover -html=cover.out"
+
 build:
 	mkdir -p dist
 	$(GOBUILD) -ldflags $(BUILDFLAGS) -o dist/kr ./cmd/kiterunner
