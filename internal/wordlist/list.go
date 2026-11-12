@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 const (
@@ -104,12 +105,18 @@ func List(ctx context.Context, opts ...ListOption) error {
 	case Pretty:
 		fallthrough
 	default:
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"alias", "filename", "source", "count", "filesize", "cached"})
+		table := tablewriter.NewTable(os.Stdout,
+			tablewriter.WithRendition(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)}),
+		)
+		table.Header("alias", "filename", "source", "count", "filesize", "cached")
 		for _, v := range wls {
-			table.Append([]string{v.Shortname, v.Filename, v.Source, strconv.Itoa(v.LineCount), v.FileSize, strconv.FormatBool(v.Cached)})
+			if err := table.Append([]string{v.Shortname, v.Filename, v.Source, strconv.Itoa(v.LineCount), v.FileSize, strconv.FormatBool(v.Cached)}); err != nil {
+				return fmt.Errorf("failed to build wordlist table: %w", err)
+			}
 		}
-		table.Render()
+		if err := table.Render(); err != nil {
+			return fmt.Errorf("failed to render wordlist table: %w", err)
+		}
 	}
 
 	return nil

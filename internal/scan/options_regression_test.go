@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,4 +45,12 @@ func TestFilteredRoutesForceMethod(t *testing.T) {
 	}
 
 	assert.Error(t, ForceMethod("BOGUS")(s))
+}
+
+func TestConfirm(t *testing.T) {
+	for in, want := range map[string]bool{"y\n": true, "YES\n": true, " y \n": true, "y": true, "n\n": false, "\n": false, "": false, "nope\n": false} {
+		var out strings.Builder
+		assert.Equal(t, want, confirm(strings.NewReader(in), &out, "q? "), "input %q", in)
+		assert.True(t, strings.HasPrefix(out.String(), "q? "))
+	}
 }

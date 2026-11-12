@@ -1,20 +1,39 @@
 package scan
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/manifoldco/promptui"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/zrthstr/kiterunner-fix/pkg/convert"
 	"github.com/zrthstr/kiterunner-fix/pkg/http"
 	"github.com/zrthstr/kiterunner-fix/pkg/kiterunner"
 	"github.com/zrthstr/kiterunner-fix/pkg/log"
 )
+
+// confirm asks a yes/no question on out and reads the answer from in. Anything other than y/yes
+// (including EOF, e.g. when stdin is not interactive) is a no.
+// This replaces promptui, which has an internal data race and is unmaintained.
+func confirm(in io.Reader, out io.Writer, question string) bool {
+	fmt.Fprint(out, question)
+	answer, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && answer == "" {
+		fmt.Fprintln(out)
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes":
+		return true
+	}
+	return false
+}
 
 // resultKey identifies a result by target and route. Routes are shared between the quick and full scan
 type resultKey struct {
@@ -168,19 +187,15 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 		case "pretty":
 			fallthrough
 		default:
-			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"setting", "value"})
-			table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-			table.SetAlignment(tablewriter.ALIGN_LEFT)
-			table.SetAutoWrapText(false)
-			table.SetAutoFormatHeaders(true)
-			// table.SetCenterSeparator("|")
-			// table.SetColumnSeparator("|")
-			// table.SetRowSeparator("")
-			// table.SetBorder(false)
-			// table.SetTablePadding("\t") // pad with tabs
-			// table.SetHeaderLine(false)
-			// table.SetNoWhiteSpace(true)
+			// stderr, like the surrounding spacing: stdout is reserved for results so it can be redirected
+			table := tablewriter.NewTable(os.Stderr,
+				tablewriter.WithRendition(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)}),
+				tablewriter.WithHeaderAlignment(tw.AlignLeft),
+				tablewriter.WithRowAlignment(tw.AlignLeft),
+				tablewriter.WithRowAutoWrap(tw.WrapNone),
+				tablewriter.WithHeaderAutoFormat(tw.On),
+			)
+			table.Header("setting", "value")
 
 			keys := make([]string, 0, len(fields))
 			for k := range fields {
@@ -189,10 +204,14 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 			sort.Strings(keys)
 
 			for _, v := range keys {
-				table.Append([]string{v, fmt.Sprintf("%v", fields[v])})
+				if err := table.Append([]string{v, fmt.Sprintf("%v", fields[v])}); err != nil {
+					log.Debug().Err(err).Msg("failed to append scan option to table")
+				}
 			}
 			fmt.Fprintf(os.Stderr, "\n")
-			table.Render()
+			if err := table.Render(); err != nil {
+				log.Debug().Err(err).Msg("failed to render scan options table")
+			}
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 	}
@@ -227,14 +246,7 @@ func ScanDomainOrFile(ctx context.Context, domainOrFile string, opts ...ScanOpti
 		// if we got no results, then we should prompt the user
 		if len(res) == 0 {
 			log.Info().Msg("no results found")
-			prompt := promptui.Prompt{
-				Label:     "Continue Scanning with full wordlist? [y/n]",
-				IsConfirm: true,
-				Stdout:    os.Stderr,
-			}
-
-			v, err := prompt.Run()
-			if err != nil || strings.ToLower(v) != "y" {
+			if !confirm(os.Stdin, os.Stderr, "Continue Scanning with full wordlist? [y/N] ") {
 				log.Info().
 					Dur("duration", time.Since(start)).
 					Msg("scan complete")

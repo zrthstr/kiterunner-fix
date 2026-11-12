@@ -2,6 +2,8 @@ package http
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -24,17 +26,20 @@ type BackupClient = fasthttp.Client
 // This is backed by the fasthttp.HostClient
 func NewHTTPClient(host string, tls bool) *HTTPClient {
 	return &HTTPClient{
-		Addr:      host,
-		IsTLS:     tls,
-		TLSConfig: defaultTLSConfig,
-		RetryIf:   noRetry,
+		Addr:       host,
+		IsTLS:      tls,
+		TLSConfig:  defaultTLSConfig,
+		RetryIfErr: retryOnlyClosedConn,
 	}
 }
 
-// noRetry disables fasthttp's retrying of idempotent requests. By default fasthttp retries GET/HEAD/PUT up to
-// 5 times on any error, including timeouts, so a single unresponsive request took 5x the configured timeout.
-// fasthttp will still retry when the server closes an idle keep-alive connection (io.EOF) before responding.
-func noRetry(_ *fasthttp.Request) bool { return false }
+// retryOnlyClosedConn controls fasthttp's retries. By default fasthttp retries idempotent requests (GET/HEAD/PUT)
+// up to 5 times on any error, including timeouts, so a single unresponsive request took 5x the configured timeout.
+// We only retry when the server closed the connection before responding, which happens when an idle keep-alive
+// connection is reused after the server already closed it. That is not a property of the target and is worth a retry.
+func retryOnlyClosedConn(_ *fasthttp.Request, _ int, err error) (resetTimeout bool, retry bool) {
+	return true, errors.Is(err, io.EOF) || errors.Is(err, fasthttp.ErrConnectionClosed)
+}
 
 // Config provides all the options available to a request, this is used by DoClient
 type Config struct {
@@ -83,7 +88,7 @@ func (c *Config) BackupClient() *BackupClient {
 			WriteTimeout:             c.Timeout,
 			TLSConfig:                defaultTLSConfig,
 			NoDefaultUserAgentHeader: true,
-			RetryIf:                  noRetry,
+			RetryIfErr:               retryOnlyClosedConn,
 		}
 	}
 	return c.backupClient
