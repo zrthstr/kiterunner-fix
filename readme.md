@@ -180,6 +180,7 @@ Flags:
       --profile-name string           name for profile output file
       --progress                      a progress bar while scanning. by default enabled only on Stderr (default true)
       --quarantine-threshold int      if the host return N consecutive hits, we quarantine the host as wildcard. Set to 0 to disable (default 10)
+      --rate-limit-retries int        how often to retry a rate limited request (429, or 503 with Retry-After), waiting as long as the server asks (max 30s) or 1s, 2s, 4s... Rate limited requests are never reported as results. 0 disables retrying (default 3)
       --success-status-codes ints     which status codes whitelist as success. this is the default mode
   -t, --timeout duration              timeout to use on all requests (default 3s)
       --user-agent string             user agent to use for requests (default "Chrome. Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36")
@@ -364,6 +365,8 @@ There are two main concurrency settings for kiterunner:
 - `-x, --max-connection-per-host` - maximum number of open connections we can have on a host. Governed by 1 goroutine each. To avoid DOS'ing a host, we recommend keeping this in a low realm of 5-10. Depending on latency to the target, this will yield on average between 1-5 requests per second per connection (200ms - 1000ms/req) to a host.
 - `-j, --max-parallel-hosts` - maximum number of hosts to scan at any given time. Governed by 1 goroutine supervisor for each
 
+If a host rate limits you, kiterunner waits and retries (see [Known limitations](#known-limitations)) and warns at the end of the scan about routes it could not check. Lower `-x` and add `--delay` for such hosts.
+
 Depending on the hardware you are scanning from, the "maximum" number of goroutines you can run optimally will vary. On an AWS t3.medium, we saw performance degradation going over 2500 goroutines. Meaning, 500 hosts x 5 conn per host (2500) would yield peak performance.
 
 We recommend **against** running kiterunner from your **macbook**. Due to poor kernel optimisations for high IO counts and Epoll syscalls on macOS, we noticed substantially poorer (0.3-0.5x) performance when compared to running kiterunner on a similarly configured linux instance.
@@ -451,7 +454,7 @@ What each layer of tests checks, and how to run it:
 | Tests | What they check | How to run |
 |---|---|---|
 | Unit tests | Parsers, request building, the scan engine | `go test ./...` (engine tests need `make bench-up`, otherwise they skip) |
-| End to end (`e2e/`) | The real `kr` binary against in-process servers with known behaviour: plain/echoing/soft 404s, single page app catch-alls, redirects, 405s, HTTPS, base paths. Every mode must report exactly the real routes (no false positives or negatives); every parameter type must produce a request a validating API accepts; every flag does what it says | part of `go test ./...`, no network needed |
+| End to end (`e2e/`) | The real `kr` binary against in-process servers with known behaviour: plain/echoing/soft 404s, single page app catch-alls, redirects, 405s, HTTPS, base paths. Every mode must report exactly the real routes (no false positives or negatives); every parameter type must produce a request a validating API accepts; every flag does what it says; a timed out request loses only that route; rate limited requests are retried and never reported | part of `go test ./...`, no network needed |
 | Real dataset | Compiles Assetnote's `routes-small.json` (~2000 real APIs) and checks all ~36k generated requests are well formed | `KR_E2E_CORPUS=download go test -run TestCorpus ./e2e/` (weekly in CI) |
 | Fuzzing | Target parsing, length ranges, redirects, schema loading and conversion, `.kite` decoding | `go test -fuzz FuzzSchemaToRequests ./pkg/proute/` etc. (weekly in CI) |
 | Real applications | Scans Swagger Petstore (Java), VAmPI (Python), OWASP Juice Shop (Node, SPA) and go-httpbin (Go) and requires exactly their real routes | `docker compose -f realworld/docker-compose.yml up -d`, then `KR_E2E_REALWORLD=1 go test -run TestRealWorld ./e2e/` (weekly in CI) |
@@ -464,7 +467,12 @@ These are properties of how kiterunner tells real routes from wildcard responses
 
 - **Soft 404 pages whose word count changes on every request** (e.g. random recommendations) can produce false
   positives; ones that only vary in length (a request id) are handled.
-- **Rate limiting** (`429`) differs from the 404 baseline and is reported. Use `--fail-status-codes 429,...`.
+- **Rate limiting**: a `429`, or a `503` with a `Retry-After` header, is retried after the delay the server asks
+  for (`--rate-limit-retries`, default 3) and is never reported as a result. Requests that stay rate limited, time
+  out or fail are counted, and the scan ends with a warning such as
+  `results are incomplete ... no-response=12 rate-limited=340`: those routes were not checked. Rerun with fewer
+  connections (`-x 1`), a `--delay`, or a longer `--timeout`. A `503` without `Retry-After` is treated like any
+  other answer, so a host that answers 503 for unknown paths still works.
 - **`--quarantine-threshold`** (default 10) stops scanning a host after that many consecutive hits, to protect
   against wildcard hosts. On a host where many routes really exist, raise it or set it to 0.
 - **`-d` / `--preflight-depth`** takes baselines closer to the routes. A route ending in a path parameter

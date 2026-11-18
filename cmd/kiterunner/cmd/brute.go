@@ -57,6 +57,7 @@ cat hosts | kr brute - -w wordlist.txt -e aspx,asmx,ashx,asp --dirsearch-compat
 			scan.ContentLengthIgnoreRanges(lengthIgnoreRange),
 			scan.Timeout(timeout),
 			scan.Delay(delay),
+			scan.RateLimitRetries(rateLimitRetries),
 			scan.AddHeaders(headers),
 			scan.LoadTextWordlist(textWordlist, extensions, dirsearchCompatabilityMode),
 			scan.LoadAssetnoteWordlist(assetnoteWordlist, extensions, dirsearchCompatabilityMode),
@@ -128,6 +129,7 @@ func init() {
 	bruteCmd.Flags().StringSliceVar(&lengthIgnoreRange, "ignore-length", lengthIgnoreRange, "a range of content length bytes to ignore. you can have multiple. e.g. 100-105 or 1234 or 123,34-53. This is inclusive on both ends")
 
 	bruteCmd.Flags().BoolVar(&progressBar, "progress", progressBar, "a progress bar while scanning. by default enabled only on Stderr")
+	bruteCmd.Flags().IntVar(&rateLimitRetries, "rate-limit-retries", rateLimitRetries, "how often to retry a rate limited request (429, or 503 with Retry-After), waiting as long as the server asks (max 30s) or 1s, 2s, 4s... Rate limited requests are never reported as results. 0 disables retrying")
 	bruteCmd.Flags().Int64Var(&quarantineThreshold, "quarantine-threshold", quarantineThreshold, "if the host return N consecutive hits, we quarantine the host as wildcard. Set to 0 to disable")
 
 	bruteCmd.Flags().Int64VarP(&brutePreflightDepth, "preflight-depth", "d", brutePreflightDepth, "when performing preflight checks, what directory depth do we attempt to check. 0 means that only the docroot is checked")

@@ -2,9 +2,11 @@ package kiterunner
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
@@ -252,6 +254,9 @@ func targetWildcardDetection(resp *fasthttp.Response, basepath string) WildcardR
 // this will return the wildcard responses calculated from the preflight check routes
 // semaphore can be the jobsemaphore or nil. If its nil, then we instantiate one temporarily
 // this ensures the client doesn't exhaust all its available connections
+// ErrPreflightRateLimited is returned when a preflight request was still rate limited after all retries
+var ErrPreflightRateLimited = errors.New("preflight request rate limited")
+
 func preflightCheck(route *http.Route, t *http.Target, config *Config, basepath []byte) (ret WildcardResponse, err error) {
 	hr := http.Request{
 		Target: t,
@@ -267,22 +272,35 @@ func preflightCheck(route *http.Route, t *http.Target, config *Config, basepath 
 		req.Header.Set(h.Key, h.Value)
 	}
 
+	defer fasthttp.ReleaseRequest(req)
+	defer fasthttp.ReleaseResponse(resp)
+
 	c := t.HTTPClient(config.MaxConnPerHost, config.HTTP.Timeout)
-	if err := c.Do(req, resp); err != nil {
-		if strings.Contains(err.Error(), "too many open files") {
-			log.Fatal().Err(err).Msg("low fd limit detected. please increase your open file limit (ulimit -n 20000)")
+	for attempt := 0; ; attempt++ {
+		if err := c.Do(req, resp); err != nil {
+			if strings.Contains(err.Error(), "too many open files") {
+				log.Fatal().Err(err).Msg("low fd limit detected. please increase your open file limit (ulimit -n 20000)")
+			}
+			// make sure we mark this as "complete". Suboptimal yes. but what else can we do
+			return ret, err
 		}
-		// make sure we mark this as "complete". Suboptimal yes. but what else can we do
-		return ret, err
+		// a rate limited answer is not the host's "not found" page and must not become the baseline
+		sc := resp.Header.StatusCode()
+		retryAfter := resp.Header.Peek(fasthttp.HeaderRetryAfter)
+		if sc != fasthttp.StatusTooManyRequests && (sc != fasthttp.StatusServiceUnavailable || len(retryAfter) == 0) {
+			break
+		}
+		if attempt >= config.RateLimitRetries {
+			return ret, ErrPreflightRateLimited
+		}
+		wait := rateLimitWait(http.ParseRetryAfter(retryAfter, time.Now()), attempt, config)
+		log.Debug().Bytes("target", t.Bytes()).Int("status", sc).Dur("wait", wait).Msg("preflight rate limited, retrying")
+		time.Sleep(wait)
 	}
 
 	if config.WildcardDetection {
 		ret = targetWildcardDetection(resp, string(req.URI().Path()))
 	}
 
-	// log.Error().Str("req", req.URI().String()).Msgf("preflight req. baseline: %+v", ret)
-
-	fasthttp.ReleaseRequest(req)
-	fasthttp.ReleaseResponse(resp)
 	return ret, nil
 }

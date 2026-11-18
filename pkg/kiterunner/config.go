@@ -30,12 +30,16 @@ func (n *NullProgressBar) AddTotal(v int64) {
 var _ ProgressBar = &NullProgressBar{}
 
 type Config struct {
-	MaxParallelHosts     int           `toml:"max_parallel_hosts" json:"max_parallel_hosts" mapstructure:"max_parallel_hosts"`
-	MaxConnPerHost       int           `toml:"max_conn_per_host" json:"max_conn_per_host" mapstructure:"max_conn_per_host"`
-	WildcardDetection    bool          `json:"wildcard_detection"`
-	Delay                time.Duration `toml:"delay_ms" json:"delay_ms" mapstructure:"delay_ms"`
-	HTTP                 http.Config   `toml:"http" json:"http" mapstructure:"http"`
-	QuarantineThreshold  int64
+	MaxParallelHosts    int           `toml:"max_parallel_hosts" json:"max_parallel_hosts" mapstructure:"max_parallel_hosts"`
+	MaxConnPerHost      int           `toml:"max_conn_per_host" json:"max_conn_per_host" mapstructure:"max_conn_per_host"`
+	WildcardDetection   bool          `json:"wildcard_detection"`
+	Delay               time.Duration `toml:"delay_ms" json:"delay_ms" mapstructure:"delay_ms"`
+	HTTP                http.Config   `toml:"http" json:"http" mapstructure:"http"`
+	QuarantineThreshold int64
+	// RateLimitRetries is how often a rate limited request (429, or 503 with Retry-After) is retried, waiting as
+	// long as the server asks (Retry-After, capped at RateLimitMaxWait) or 1s, 2s, 4s, ... if it does not say
+	RateLimitRetries     int
+	RateLimitMaxWait     time.Duration
 	PreflightCheckRoutes []*http.Route // these are the routes use to calculate the baseline. If the slice is empty, no baselines will be created so requests will match on the status codes
 	ProgressBar          ProgressBar
 	RequestValidators    []RequestValidator
@@ -46,6 +50,8 @@ func NewDefaultConfig() *Config {
 		MaxParallelHosts: 50,
 		MaxConnPerHost:   5,
 		Delay:            0 * time.Duration(0),
+		RateLimitRetries: 3,
+		RateLimitMaxWait: 30 * time.Second,
 		// we have no default status codes, we rely on our wildcard detection
 		ProgressBar:          &NullProgressBar{},
 		PreflightCheckRoutes: append([]*http.Route{}, PreflightCheckRoutes...),
@@ -102,6 +108,13 @@ func MaxTimeout(n time.Duration) ConfigOption {
 func Delay(n time.Duration) ConfigOption {
 	return func(c *Config) {
 		c.Delay = n
+	}
+}
+
+// RateLimitRetries sets how often a rate limited request is retried. 0 disables retrying
+func RateLimitRetries(n int) ConfigOption {
+	return func(c *Config) {
+		c.RateLimitRetries = n
 	}
 }
 

@@ -1,6 +1,8 @@
 package http
 
 import (
+	"time"
+
 	"fmt"
 	"sync"
 
@@ -28,6 +30,11 @@ type Response struct {
 	OriginRequest Request
 	Next          *Response
 	Error         error // Whether an error occurred during the request
+
+	// RateLimited is set for a 429, or a 503 with a Retry-After header: the server did not answer for the route
+	// itself. RetryAfter is the delay the server asked for, 0 if it did not say
+	RateLimited bool
+	RetryAfter  time.Duration
 }
 
 type Responses []*Response
@@ -96,6 +103,8 @@ func (r *Response) AddHeader(k, v []byte) {
 
 func (r *Response) Reset() {
 	r.StatusCode = 0
+	r.RateLimited = false
+	r.RetryAfter = 0
 	r.HTTPVersion = ""
 	for _, v := range r.Headers {
 		ReleaseHeader(v)

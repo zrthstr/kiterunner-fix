@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -11,7 +12,8 @@ import (
 )
 
 var (
-	strLocation = []byte(fasthttp.HeaderLocation)
+	strLocation   = []byte(fasthttp.HeaderLocation)
+	strRetryAfter = []byte(fasthttp.HeaderRetryAfter)
 )
 
 // HTTPClient is a type alias for the actual host client we use.
@@ -180,6 +182,11 @@ func doRequestFollowRedirects(c *HTTPClient, fastreq *fasthttp.Request, fastresp
 
 		// update our response with the results of the request
 		resp.StatusCode = statusCode
+		if statusCode == fasthttp.StatusTooManyRequests || statusCode == fasthttp.StatusServiceUnavailable {
+			retryAfter := fastresp.Header.PeekBytes(strRetryAfter)
+			resp.RateLimited = statusCode == fasthttp.StatusTooManyRequests || len(retryAfter) > 0
+			resp.RetryAfter = ParseRetryAfter(retryAfter, time.Now())
+		}
 		// the first URI will be empty. Yes i know. this is because the first request we know what the URI is (given the target and route)
 		// we update the next response's URI based off the location header
 
@@ -284,4 +291,26 @@ func StatusCodeIsRedirect(statusCode int) bool {
 		statusCode == fasthttp.StatusSeeOther ||
 		statusCode == fasthttp.StatusTemporaryRedirect ||
 		statusCode == fasthttp.StatusPermanentRedirect
+}
+
+// ParseRetryAfter parses a Retry-After header value: delay seconds or an HTTP date. It returns 0 if the value
+// is missing, invalid or in the past
+func ParseRetryAfter(v []byte, now time.Time) time.Duration {
+	if len(v) == 0 {
+		return 0
+	}
+	if secs, err := strconv.Atoi(string(bytes.TrimSpace(v))); err == nil {
+		if secs <= 0 {
+			return 0
+		}
+		if secs > 86400 {
+			secs = 86400
+		}
+		return time.Duration(secs) * time.Second
+	}
+	t, err := fasthttp.ParseHTTPDate(bytes.TrimSpace(v))
+	if err != nil || !t.After(now) {
+		return 0
+	}
+	return t.Sub(now)
 }

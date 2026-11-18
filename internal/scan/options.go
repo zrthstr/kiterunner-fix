@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	DefaultUserAgent       = "Chrome. Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"
-	DefaultMaxConnPerHost  = 3
-	DefaultMaxParallelHost = 50
-	DefaultMaxRedirects    = 3
-	DefaultDelay           = 0 * time.Second
-	DefaultTimeout         = 3 * time.Second
+	DefaultUserAgent        = "Chrome. Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"
+	DefaultMaxConnPerHost   = 3
+	DefaultMaxParallelHost  = 50
+	DefaultMaxRedirects     = 3
+	DefaultDelay            = 0 * time.Second
+	DefaultRateLimitRetries = 3
+	DefaultTimeout          = 3 * time.Second
 )
 
 var ()
@@ -39,6 +40,7 @@ type ScanOptions struct {
 	MaxConnPerHost           int
 	MaxParallelHosts         int
 	Delay                    time.Duration
+	RateLimitRetries         int
 	UserAgent                string
 	Timeout                  time.Duration
 	MaxRedirects             int
@@ -78,6 +80,7 @@ func (s ScanOptions) KiterunnerOptions() []kiterunner.ConfigOption {
 		kiterunner.MaxConnPerHost(s.MaxConnPerHost),
 		kiterunner.MaxTimeout(s.Timeout),
 		kiterunner.Delay(s.Delay),
+		kiterunner.RateLimitRetries(s.RateLimitRetries),
 		kiterunner.ReadHeaders(false),
 		kiterunner.ReadBody(false),
 		kiterunner.HTTPExtraHeaders(s.Headers),
@@ -100,6 +103,7 @@ func (s ScanOptions) String() string {
 		"MaxConnPerHost":           s.MaxConnPerHost,
 		"MaxParallelHosts":         s.MaxParallelHosts,
 		"Delay":                    s.Delay,
+		"RateLimitRetries":         s.RateLimitRetries,
 		"UserAgent":                s.UserAgent,
 		"Timeout":                  s.Timeout,
 		"MaxRedirects":             s.MaxRedirects,
@@ -129,6 +133,7 @@ func NewDefaultScanOptions() *ScanOptions {
 		MaxRedirects:        DefaultMaxRedirects,
 		MaxParallelHosts:    DefaultMaxParallelHost,
 		Delay:               DefaultDelay,
+		RateLimitRetries:    DefaultRateLimitRetries,
 		Timeout:             DefaultTimeout,
 		UserAgent:           DefaultUserAgent,
 		ShowProgress:        false,
@@ -222,6 +227,16 @@ func UserAgent(n string) ScanOption {
 func Timeout(n time.Duration) ScanOption {
 	return func(o *ScanOptions) error {
 		o.Timeout = n
+		return nil
+	}
+}
+
+func RateLimitRetries(n int) ScanOption {
+	return func(o *ScanOptions) error {
+		if n < 0 {
+			return fmt.Errorf("rate limit retries must not be negative")
+		}
+		o.RateLimitRetries = n
 		return nil
 	}
 }

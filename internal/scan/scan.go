@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -75,10 +76,26 @@ func runWithProgressSkip(ctx context.Context, pbEnabled bool, routes http.RouteM
 		}
 	}
 	res, err := e.RunCallback(ctx, targets, logResult)
+	warnIncomplete(targets)
 	if err != nil {
 		return res, fmt.Errorf("failed to scan: %w", err)
 	}
 	return res, nil
+}
+
+// warnIncomplete tells the user about routes whose existence is unknown because the request timed out, the
+// connection failed, or the host kept rate limiting it
+func warnIncomplete(targets []*http.Target) {
+	for _, t := range targets {
+		failed, limited := t.TakeIncomplete()
+		if failed == 0 && limited == 0 {
+			continue
+		}
+		log.Warn().Str("target", t.String()).
+			Int64("no-response", failed).
+			Int64("rate-limited", limited).
+			Msg("results are incomplete, these requests were not answered. Try fewer connections (-x 1), a --delay or a longer --timeout")
+	}
 }
 
 // ScanDomainOrFile will perform a scan using the domain or file provided.
@@ -333,6 +350,10 @@ func ScanStdin(ctx context.Context, opts ...ScanOption) error {
 		return fmt.Errorf("failed to start scan: %w", err)
 	}
 
+	var (
+		sentMu sync.Mutex
+		sent   []*http.Target
+	)
 	go func() {
 		total := 0
 		for {
@@ -348,6 +369,9 @@ func ScanStdin(ctx context.Context, opts ...ScanOption) error {
 						// the engine requires every target to have a context, same as ScanDomainOrFile
 						v.SetContext(ctx)
 						total += 1
+						sentMu.Lock()
+						sent = append(sent, v)
+						sentMu.Unlock()
 						if pb != nil {
 							pb.AddTotal(int64(len(routeSlice)))
 						}
@@ -364,5 +388,8 @@ func ScanStdin(ctx context.Context, opts ...ScanOption) error {
 	if pb != nil {
 		pb.Requests.Finish()
 	}
+	sentMu.Lock()
+	warnIncomplete(sent)
+	sentMu.Unlock()
 	return nil
 }

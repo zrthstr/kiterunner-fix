@@ -30,6 +30,7 @@ var (
 	delay                     = 0 * time.Second
 	userAgent                 = "Chrome. Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"
 	quarantineThreshold int64 = 10
+	rateLimitRetries          = 3
 
 	timeout      = 3 * time.Second
 	maxRedirects = 3
@@ -81,6 +82,7 @@ kr brute domains.txt -w rafter.txt -d=0 # plain wordlist (not kite), depth scann
 			scan.ContentLengthIgnoreRanges(lengthIgnoreRange),
 			scan.Timeout(timeout),
 			scan.Delay(delay),
+			scan.RateLimitRetries(rateLimitRetries),
 			scan.AddHeaders(headers),
 			scan.LoadKitebuilderFile(kitebuilderFiles),
 			scan.KitebuilderFullScan(kitebuilderFullScan),
@@ -151,6 +153,7 @@ func init() {
 	scanCmd.Flags().StringSliceVar(&lengthIgnoreRange, "ignore-length", lengthIgnoreRange, "a range of content length bytes to ignore. you can have multiple. e.g. 100-105 or 1234 or 123,34-53. This is inclusive on both ends")
 
 	scanCmd.Flags().BoolVar(&progressBar, "progress", progressBar, "a progress bar while scanning. by default enabled only on Stderr")
+	scanCmd.Flags().IntVar(&rateLimitRetries, "rate-limit-retries", rateLimitRetries, "how often to retry a rate limited request (429, or 503 with Retry-After), waiting as long as the server asks (max 30s) or 1s, 2s, 4s... Rate limited requests are never reported as results. 0 disables retrying")
 	scanCmd.Flags().Int64Var(&quarantineThreshold, "quarantine-threshold", quarantineThreshold, "if the host return N consecutive hits, we quarantine the host as wildcard. Set to 0 to disable")
 
 	scanCmd.Flags().Int64VarP(&preflightDepth, "preflight-depth", "d", 1, "when performing preflight checks, what directory depth do we attempt to check. 0 means that only the docroot is checked")

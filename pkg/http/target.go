@@ -72,6 +72,8 @@ type Target struct {
 	hits           int64 // number of hits. if this gets too high, we'll quarantine the host
 	quarantineHits int64
 	quarantined    int32
+	failed         int64 // requests that got no response (timeout, connection error)
+	rateLimited    int64 // requests still rate limited after all retries
 
 	b   []byte
 	muB sync.Mutex
@@ -120,6 +122,22 @@ func (t *Target) HitIncr() int64 {
 // Reset returns the old quarantine counter
 func (t *Target) HitReset() int64 {
 	return atomic.SwapInt64(&t.hits, 0)
+}
+
+// FailedIncr counts a request that got no response (timeout, connection error)
+func (t *Target) FailedIncr() int64 {
+	return atomic.AddInt64(&t.failed, 1)
+}
+
+// RateLimitedIncr counts a request that was still rate limited after all retries
+func (t *Target) RateLimitedIncr() int64 {
+	return atomic.AddInt64(&t.rateLimited, 1)
+}
+
+// TakeIncomplete returns and resets the number of failed and rate limited requests, i.e. the routes whose
+// existence is unknown
+func (t *Target) TakeIncomplete() (failed, rateLimited int64) {
+	return atomic.SwapInt64(&t.failed, 0), atomic.SwapInt64(&t.rateLimited, 0)
 }
 
 // Hits will return the value of the number of hits this target has been used for
@@ -323,6 +341,7 @@ func (t *Target) reset() {
 	t.muB.Unlock()
 	t.QuarantineReset()
 	t.HitReset()
+	t.TakeIncomplete()
 
 	t.ctx = nil
 	t.ctxcancel = nil

@@ -303,67 +303,137 @@ routeloop:
 		j.t.HitIncr()
 		config.ProgressBar.Incr(1)
 
-		resp, err := http.DoClient(j.client, req, &config.HTTP)
+		resp, err := doRequest(ctx, j, req, config)
 		if err != nil {
+			releaseChain(resp.Next)
+			if ctx.Err() != nil {
+				break routeloop
+			}
+			j.t.FailedIncr()
 			log.Debug().Err(err).
-				Bytes("request", req.Target.Bytes()).
-				Int("status", resp.StatusCode).
-				Str("func", "handleRequest").
-				Msg("failed request")
-			// do not early exit as all the steps afterwards must be executed
+				Bytes("target", j.t.Bytes()).
+				Bytes("method", route.Method).
+				Bytes("path", route.Path).
+				Msg("request failed, no response")
 
-			// TODO: implement alternative queue for quarantined host
-			// If the request fails, also consider it for quarantine. The host might be down or we're getting blocked
-			v := j.t.QuarantineIncr()
-			if v > config.QuarantineThreshold {
-				// log.Trace().Bytes("target", j.t.Bytes()).Msg("quarantining host")
+			// only this route failed, carry on with the rest. A failure also counts towards the quarantine: the host
+			// might be down or blocking us
+			if v := j.t.QuarantineIncr(); v > config.QuarantineThreshold {
 				j.t.Quarantine()
 			}
-			break
-		} else {
-			// we have to pass all validators before we can consider it a valid request
-			for _, v := range config.RequestValidators {
-				if err := v.Validate(resp, j.wcr, config); err != nil {
-					j.t.QuarantineReset()
-
-					log.Debug().Err(err).
-						Bytes("target", j.t.Bytes()).
-						Bytes("path", route.Path).
-						Int("status", resp.StatusCode).
-						Msg("request was not valid. discarding")
-
-					// this request was not a match, so release all chained requests that were part of it
-					for r := resp.Next; r != nil; {
-						next := r.Next
-						http.ReleaseResponse(r)
-						r = next
-					}
-					continue routeloop
-				}
+			if config.QuarantineThreshold > 0 && j.t.Quarantined() {
+				break routeloop
 			}
-
-			// if QuarantineThreshold requests all fail the check, then we've hit firewalling or a wildcard host
-			// so we can just skip over it
-			v := j.t.QuarantineIncr()
-			if v > config.QuarantineThreshold {
-				// log.Trace().Bytes("target", j.t.Bytes()).Msg("quarantining host")
-				j.t.Quarantine()
-			}
-
-			// We don't expect the result to be deallocated for us. We make a copy of the resp so we never accidentally
-			// deallocate it
-			log.Trace().Err(err).Bytes("target", j.t.Bytes()).Bytes("path", route.Path).Msg("succesful request. sending to result")
-			ret := AcquireResult()
-			ret.Target = j.t
-			ret.Response = resp
-			ret.Route = route
-			resChan <- ret
+			continue
 		}
+
+		if resp.RateLimited {
+			// still rate limited after all retries: the server never answered for this route, so it is neither a
+			// result nor evidence of a wildcard
+			releaseChain(resp.Next)
+			j.t.RateLimitedIncr()
+			log.Debug().
+				Bytes("target", j.t.Bytes()).
+				Bytes("method", route.Method).
+				Bytes("path", route.Path).
+				Int("status", resp.StatusCode).
+				Msg("rate limited, giving up on route")
+			continue
+		}
+
+		// we have to pass all validators before we can consider it a valid request
+		for _, v := range config.RequestValidators {
+			if err := v.Validate(resp, j.wcr, config); err != nil {
+				j.t.QuarantineReset()
+
+				log.Debug().
+					Bytes("target", j.t.Bytes()).
+					Bytes("method", route.Method).
+					Bytes("path", route.Path).
+					Int("status", resp.StatusCode).
+					Int("length", resp.BodyLength).
+					Str("reason", err.Error()).
+					Msg("discarded, looks like the wildcard or filtered")
+
+				// this request was not a match, so release all chained requests that were part of it
+				releaseChain(resp.Next)
+				continue routeloop
+			}
+		}
+
+		// if QuarantineThreshold requests all fail the check, then we've hit firewalling or a wildcard host
+		// so we can just skip over it
+		if v := j.t.QuarantineIncr(); v > config.QuarantineThreshold {
+			j.t.Quarantine()
+		}
+
+		log.Trace().
+			Bytes("target", j.t.Bytes()).
+			Bytes("method", route.Method).
+			Bytes("path", route.Path).
+			Int("status", resp.StatusCode).
+			Int("length", resp.BodyLength).
+			Msg("hit")
+		// We don't expect the result to be deallocated for us. We make a copy of the resp so we never accidentally
+		// deallocate it
+		ret := AcquireResult()
+		ret.Target = j.t
+		ret.Response = resp
+		ret.Route = route
+		resChan <- ret
 	}
 
 	// done with the request
 	releaseJob(j)
 	return nil
+}
+
+// doRequest sends the request, retrying while the server rate limits it (see Config.RateLimitRetries). The
+// returned response is still marked RateLimited if every retry was rate limited
+func doRequest(ctx context.Context, j *job, req http.Request, config *Config) (http.Response, error) {
+	for attempt := 0; ; attempt++ {
+		resp, err := http.DoClient(j.client, req, &config.HTTP)
+		if err != nil || !resp.RateLimited || attempt >= config.RateLimitRetries {
+			return resp, err
+		}
+		wait := rateLimitWait(resp.RetryAfter, attempt, config)
+		log.Debug().
+			Bytes("target", j.t.Bytes()).
+			Bytes("method", req.Route.Method).
+			Bytes("path", req.Route.Path).
+			Int("status", resp.StatusCode).
+			Dur("wait", wait).
+			Msg("rate limited, retrying")
+		releaseChain(resp.Next)
+		resp.Next = nil
+		select {
+		case <-ctx.Done():
+			return resp, ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+}
+
+// rateLimitWait is how long to wait before retrying a rate limited request: what the server asked for, or 1s, 2s,
+// 4s, ... if it did not say, capped at RateLimitMaxWait
+func rateLimitWait(retryAfter time.Duration, attempt int, config *Config) time.Duration {
+	wait := retryAfter
+	if wait <= 0 {
+		wait = time.Second << min(attempt, 10)
+	}
+	if config.RateLimitMaxWait > 0 && wait > config.RateLimitMaxWait {
+		wait = config.RateLimitMaxWait
+	}
+	return wait
+}
+
+// releaseChain releases the redirect responses chained to a response
+func releaseChain(r *http.Response) {
+	for r != nil {
+		next := r.Next
+		http.ReleaseResponse(r)
+		r = next
+	}
 }
 
 // RunAsync will begin all the concurrent threads for scanning. Inputs should be fed to the tx (to transmit) and results
